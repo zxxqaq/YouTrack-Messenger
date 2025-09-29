@@ -1,48 +1,48 @@
-package org.example;
+package org.example.infrastructure.telegram;
 
-import java.io.*;
+import org.example.domain.port.MessengerPort;
+import org.springframework.stereotype.Component;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
-public final class TelegramClient {
-    private final String token;
-    private final String groupChatId; // e.g., -4908402163
-    private final String pmChatId;    // e.g., 8003925771
+@Component
+public class TelegramClient implements MessengerPort {
+    private final TelegramProperties properties;
 
-    public TelegramClient(String token, String groupChatId, String pmChatId) {
-        this.token = token;
-        this.groupChatId = groupChatId;
-        this.pmChatId = pmChatId;
+    public TelegramClient(TelegramProperties properties) {
+        this.properties = properties;
     }
 
-    /** Send MarkdownV2 message to the configured group chat */
+    @Override
     public void sendToGroup(String text) throws IOException {
-        if (groupChatId == null) throw new IllegalStateException("TG_GROUP_CHAT_ID is null");
-        sendMarkdownV2(groupChatId, text);
+        if (properties.getGroupChatId() == null) throw new IllegalStateException("telegram.group-chat-id is null");
+        sendMarkdownV2(properties.getGroupChatId(), text);
     }
 
-    /** Send MarkdownV2 message to the configured PM chat */
+    @Override
     public void sendToPm(String text) throws IOException {
-        if (pmChatId == null) throw new IllegalStateException("TG_PM_CHAT_ID is null");
-        sendMarkdownV2(pmChatId, text);
+        if (properties.getPmChatId() == null) throw new IllegalStateException("telegram.pm-chat-id is null");
+        sendMarkdownV2(properties.getPmChatId(), text);
     }
 
-    /** Send MarkdownV2 message to a specific chat id */
-    public void sendMarkdownV2(String chatId, String text) throws IOException {
-        String endpoint = "https://api.telegram.org/bot" + token + "/sendMessage";
+    private void sendMarkdownV2(String chatId, String text) throws IOException {
+        String endpoint = "https://api.telegram.org/bot" + properties.getBotToken() + "/sendMessage";
         String body = formEncode(
                 "chat_id", chatId,
                 "text", text,
-                "parse_mode", "MarkdownV2",
                 "disable_web_page_preview", "true",
                 "allow_sending_without_reply", "true"
         );
         httpPost(endpoint, body, "application/x-www-form-urlencoded");
     }
-
-    // ---------- internals ----------
 
     private static String formEncode(String... kv) {
         if (kv.length % 2 != 0) throw new IllegalArgumentException("key/value pairs required");
@@ -58,7 +58,6 @@ public final class TelegramClient {
         try {
             return URLEncoder.encode(s == null ? "" : s, StandardCharsets.UTF_8.name());
         } catch (Exception e) {
-            // should not happen
             return "";
         }
     }
@@ -99,3 +98,5 @@ public final class TelegramClient {
         }
     }
 }
+
+

@@ -1,6 +1,7 @@
 package org.example;
 
-import io.github.cdimascio.dotenv.Dotenv;
+import org.example.infrastructure.youtrack.YouTrackClient;
+import org.example.infrastructure.youtrack.YouTrackProperties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Assumptions;
 
@@ -12,16 +13,23 @@ public class YouTrackClientTest {
 
     @Test
     void realFetchFromYouTrack_shouldDecodeAndMapFields() throws Exception {
-        Dotenv dotenv = Dotenv.load();
-        String base = dotenv.get("YT_BASE_URL");
-        String token = dotenv.get("YT_TOKEN");
+        // 使用环境变量或默认值
+        String base = System.getenv("YT_BASE_URL");
+        String token = System.getenv("YT_TOKEN");
+        
+        // 如果环境变量不存在，使用默认值（用于测试）
+        if (base == null) base = "https://xianzhang.youtrack.cloud";
+        if (token == null) token = "perm-YWRtaW4=.NDQtMA==.FcKqV8V4PBbzDicI3WRnw0NOG7boGd";
 
         Assumptions.assumeTrue(base != null && !base.isBlank(), "skip: no YT_BASE_URL");
         Assumptions.assumeTrue(token != null && !token.isBlank(), "skip: no YT_TOKEN");
 
-
-        YouTrackClient client = new YouTrackClient(base, token);
-        List<YouTrackClient.Notification> list = client.fetchNotifications(20);
+        YouTrackProperties properties = new YouTrackProperties();
+        properties.setBaseUrl(base);
+        properties.setToken(token);
+        
+        YouTrackClient client = new YouTrackClient(properties);
+        List<org.example.domain.view.NotificationView> list = client.fetchNotifications(20);
 
         System.out.println("fetched notifications num: " + list.size());
         for (var n : list) {

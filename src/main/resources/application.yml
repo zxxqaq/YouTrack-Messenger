@@ -1,0 +1,17 @@
+server:
+  port: 8080
+
+youtrack:
+  base-url: ${YT_BASE_URL:}
+  token: ${YT_TOKEN:}
+
+telegram:
+  bot-token: ${TG_BOT_TOKEN:}
+  group-chat-id: ${TG_GROUP_CHAT_ID:}
+  pm-chat-id: ${TG_PM_CHAT_ID:}
+
+logging:
+  level:
+    root: INFO
+
+

@@ -1,44 +1,46 @@
-package org.example;
+package org.example.infrastructure.youtrack;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import okhttp3.*;
+import okhttp3.HttpUrl;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import org.example.domain.port.IssueTrackerPort;
+import org.example.domain.view.NotificationView;
+import org.springframework.stereotype.Component;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 import java.util.zip.GZIPInputStream;
-import java.io.ByteArrayInputStream;
 
-public class YouTrackClient {
-    private final String base;
-    private final String token;
+@Component
+public class YouTrackClient implements IssueTrackerPort {
+
+    private final YouTrackProperties properties;
     private final OkHttpClient http = new OkHttpClient();
     private final ObjectMapper om = new ObjectMapper();
 
-    // TODO: permanent storage
-    private final Set<String> sentIds = ConcurrentHashMap.newKeySet();
-
-    public YouTrackClient(String baseUrl, String token) {
-        this.base = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length()-1) : baseUrl;
-        this.token = token;
+    public YouTrackClient(YouTrackProperties properties) {
+        this.properties = properties;
     }
-    // TODO: filter the already sent notifications
 
-    // TODO: timeout/retry
-    // TODO: pagination, maximum top value
-    public List<Notification> fetchNotifications(int top) throws IOException {
+    @Override
+    public List<NotificationView> fetchNotifications(int top) throws IOException {
+        String base = normalizeBase(properties.getBaseUrl());
         HttpUrl url = HttpUrl.parse(base + "/api/users/notifications")
                 .newBuilder()
                 .addQueryParameter("fields", "id,content,metadata,read,updated")
-                .addQueryParameter("\u0024top", String.valueOf(top))
+                .addQueryParameter("$top", String.valueOf(top))
                 .build();
 
         Request req = new Request.Builder()
                 .url(url)
-                .header("Authorization", "Bearer " + token)
+                .header("Authorization", "Bearer " + properties.getToken())
                 .build();
 
         try (Response resp = http.newCall(req).execute()) {
@@ -46,51 +48,46 @@ public class YouTrackClient {
                 throw new IOException("YouTrack " + resp.code() + ": " + resp.message());
             }
             JsonNode arr = om.readTree(resp.body().byteStream());
-            List<Notification> list = new ArrayList<>();
+            List<NotificationView> list = new ArrayList<>();
             if (arr.isArray()) {
                 for (JsonNode n : arr) {
-                    Notification x = new Notification();
+                    NotificationView x = new NotificationView();
                     x.id = n.path("id").asText();
                     x.content = decodeIfGzipBase64(n.path("content").asText(""));
 
-                    // ---- decode & parse metadata ----
                     String metadataRaw = decodeIfGzipBase64(n.path("metadata").asText(""));
                     JsonNode metadata = om.readTree(metadataRaw);
 
-                    JsonNode issue   = metadata.path("issue");
-                    JsonNode fields  = issue.path("fields");
-                    JsonNode change  = metadata.path("change");
-                    JsonNode reason  = metadata.path("reason");
+                    JsonNode issue = metadata.path("issue");
+                    JsonNode fields = issue.path("fields");
+                    JsonNode change = metadata.path("change");
+                    JsonNode reason = metadata.path("reason");
 
-                    String issueId   = issue.path("id").asText("");
-                    String summary   = issue.path("summary").asText("");
-                    String state     = fieldValueByName(fields, "State");
-                    String assignee  = fieldValueByName(fields, "Assignee");
-                    String priority  = fieldValueByName(fields, "Priority");
-                    String header    = metadata.path("header").asText("");
+                    String issueId = issue.path("id").asText("");
+                    String summary = issue.path("summary").asText("");
+                    String state = fieldValueByName(fields, "State");
+                    String assignee = fieldValueByName(fields, "Assignee");
+                    String priority = fieldValueByName(fields, "Priority");
+                    String header = metadata.path("header").asText("");
 
-                    // tags: prefer change.events; fallback to reason.tagReasons
                     List<String> tags = tagsAdded(change);
                     if (tags.isEmpty()) {
                         reason.path("tagReasons").forEach(t -> tags.add(t.path("name").asText("")));
                     }
 
-                    // comment text if present (for comment/mention notifications)
                     String comment = commentText(change);
 
-                    // ---- assign back to notification ----
-                    x.title   = summary;          // show issue.summary as title
-                    x.status  = state;            // show State field as status
-                    x.read    = n.path("read").asBoolean(false);
-                    x.updated = "";               // skip for now
-
-                    x.issueId  = issueId;
+                    x.title = summary;
+                    x.status = state;
+                    x.read = n.path("read").asBoolean(false);
+                    x.updated = "";
+                    x.issueId = issueId;
                     x.assignee = assignee;
                     x.priority = priority;
-                    x.header   = header;
-                    x.tags     = tags;
-                    x.comment  = comment;
-                    x.link     = base + "/issue/" + issueId;
+                    x.header = header;
+                    x.tags = tags;
+                    x.comment = comment;
+                    x.link = base + "/issue/" + issueId;
 
                     list.add(x);
                 }
@@ -99,22 +96,11 @@ public class YouTrackClient {
         }
     }
 
-    public static class Notification {
-        public String id, title, content, status, updated;
-        public boolean read;
-
-        public String issueId;     // DEMO-3
-        public String assignee;    // admin
-        public String priority;    // Normal/Major/...
-        public String header;      // Assigned / Commented / ...
-        public String comment;     // comment text if any
-        public String link;        // direct link to issue
-        public List<String> tags;  // eg ["Star"]
+    private static String normalizeBase(String baseUrl) {
+        if (baseUrl == null) return "";
+        return baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
     }
 
-    // -------- helpers --------
-
-    // get value name from fields array by name
     private static String fieldValueByName(JsonNode fields, String name) {
         if (fields != null && fields.isArray()) {
             for (JsonNode f : fields) {
@@ -126,7 +112,6 @@ public class YouTrackClient {
         return "";
     }
 
-    // get tag names added in change.events
     private static List<String> tagsAdded(JsonNode change) {
         List<String> out = new ArrayList<>();
         change.path("events").forEach(ev -> {
@@ -137,7 +122,6 @@ public class YouTrackClient {
         return out;
     }
 
-    // get comment text from change.events if any
     private static String commentText(JsonNode change) {
         for (JsonNode ev : change.path("events")) {
             if ("COMMENT".equals(ev.path("category").asText())) {
@@ -150,7 +134,6 @@ public class YouTrackClient {
         return "";
     }
 
-    // decode gzip + base64
     private static String decodeIfGzipBase64(String input) {
         if (input == null || input.isBlank()) return "";
         try {
@@ -163,7 +146,9 @@ public class YouTrackClient {
                 return new String(decoded, StandardCharsets.UTF_8);
             }
         } catch (Exception e) {
-            return input; // fallback to original
+            return input;
         }
     }
 }
+
+
