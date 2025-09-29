@@ -17,6 +17,7 @@ dependencies {
 
     testImplementation(platform("org.junit:junit-bom:5.9.1"))
     testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("com.github.tomakehurst:wiremock-jre8:2.35.2")
 }
 
 application {

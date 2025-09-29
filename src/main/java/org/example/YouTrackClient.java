@@ -5,8 +5,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.*;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.Base64;
+import java.util.zip.GZIPInputStream;
+import java.io.ByteArrayInputStream;
 
 public class YouTrackClient {
     private final String base;
@@ -46,9 +50,13 @@ public class YouTrackClient {
                 for (JsonNode n : arr) {
                     Notification x = new Notification();
                     x.id = n.path("id").asText();
-                    x.content = n.path("content").asText("");
-                    x.title = n.path("metadata").path("title").asText("");
-                    x.status = n.path("metadata").path("status").asText("");
+                    x.content = decodeIfGzipBase64(n.path("content").asText(""));
+                    String metadataRaw = decodeIfGzipBase64(n.path("metadata").asText(""));
+                    JsonNode metadata = om.readTree(metadataRaw);
+                    x.title = metadata.path("title").asText("");
+                    x.status = metadata.path("status").asText("");
+//                    x.title = n.path("metadata").path("title").asText("");
+//                    x.status = n.path("metadata").path("status").asText("");
                     x.read = n.path("read").asBoolean(false);
                     x.updated = n.path("updated").asText("");
                     list.add(x);
@@ -61,5 +69,22 @@ public class YouTrackClient {
     public static class Notification {
         public String id, title, content, status, updated;
         public boolean read;
+    }
+
+    // decode gzip + base 64
+    private static String decodeIfGzipBase64(String input) {
+        if (input == null || input.isBlank()) return "";
+        try {
+            byte[] decoded = Base64.getDecoder().decode(input);
+            if (decoded.length >= 2 && decoded[0] == (byte) 0x1f && decoded[1] == (byte) 0x8b) {
+                try (GZIPInputStream gis = new GZIPInputStream(new ByteArrayInputStream(decoded))) {
+                    return new String(gis.readAllBytes(), StandardCharsets.UTF_8);
+                }
+            } else {
+                return new String(decoded, StandardCharsets.UTF_8);
+            }
+        } catch (Exception e) {
+            return input;
+        }
     }
 }
