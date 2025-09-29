@@ -1,19 +1,25 @@
 plugins {
     id("java")
+    application
 }
 
-group = "org.example"
-version = "1.0-SNAPSHOT"
-
-repositories {
-    mavenCentral()
+java {
+    toolchain { languageVersion.set(JavaLanguageVersion.of(17)) }
 }
+
+repositories { mavenCentral() }
 
 dependencies {
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.17.2")
+    implementation("org.slf4j:slf4j-simple:2.0.13")
+
     testImplementation(platform("org.junit:junit-bom:5.9.1"))
     testImplementation("org.junit.jupiter:junit-jupiter")
 }
 
-tasks.test {
-    useJUnitPlatform()
+application {
+    mainClass.set("org.example.App")
 }
+
+tasks.test { useJUnitPlatform() }
