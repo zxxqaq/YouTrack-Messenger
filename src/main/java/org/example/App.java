@@ -27,9 +27,9 @@ public class App {
 
         // initialize the clients
         YouTrackClient yt = new YouTrackClient(ytBase, ytToken);
-//        TelegramClient tg = (tgToken != null && tgGroupChatId != null)
-//                ? new TelegramClient(tgToken, tgGroupChatId)
-//                : null;
+        TelegramClient tg = (tgToken != null && tgGroupChatId != null && tgPmChatId != null)
+                ? new TelegramClient(tgToken, tgGroupChatId, tgPmChatId)
+                : null;
 
         // timed task executor
         ScheduledExecutorService ses = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -51,12 +51,14 @@ public class App {
 
                 for (YouTrackClient.Notification n : list) {
                     String msg = Formatter.toTelegramMarkdown(n);
-//                    if (tg != null) {
-//                        tg.sendMarkdown(msg);
-//                        System.out.println("[Sent TG] " + n.id);
-//                    } else {
-//                        System.out.println("[DryRun] " + msg);
-//                    }
+                    if (tg != null) {
+                        // TODO: Or send to private
+                        tg.sendToGroup(msg);
+                        // tg.sendToPm(msg);
+                        System.out.println("[Sent TG] " + n.id);
+                    } else {
+                        System.out.println("[DryRun] " + msg);
+                    }
                 }
             } catch (Exception e) {
                 System.err.println("[Poll error] " + e.getMessage());
