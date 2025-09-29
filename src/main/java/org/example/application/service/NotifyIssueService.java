@@ -36,50 +36,9 @@ public class NotifyIssueService {
     }
 
     private String formatForTelegram(NotificationView n) {
-        // 简化格式，避免复杂的MarkdownV2转义
-        String title = n.title != null ? n.title : "No title";
-        String status = n.status != null ? n.status : "Unknown";
-        String link = n.link != null ? n.link : "";
-        String header = n.header != null ? n.header : "";
-        String comment = n.comment != null && !n.comment.isBlank() ? n.comment : "";
-        
-        StringBuilder sb = new StringBuilder();
-        sb.append("📋 ").append(title).append("\n");
-        sb.append("📊 Status: ").append(status).append("\n");
-        if (!header.isBlank()) {
-            sb.append("📝 ").append(header).append("\n");
-        }
-        if (!comment.isBlank()) {
-            sb.append("💬 ").append(comment).append("\n");
-        }
-        if (!link.isBlank()) {
-            sb.append("🔗 ").append(link);
-        }
-        return sb.toString();
+        return Formatter.toTelegramMarkdown(n);
     }
 
-    private static String escape(String s) {
-        if (s == null) return "";
-        // Minimal MarkdownV2 escaping for Telegram
-        return s.replace("_", "\\_")
-                .replace("*", "\\*")
-                .replace("[", "\\[")
-                .replace("]", "\\]")
-                .replace("(", "\\(")
-                .replace(")", "\\)")
-                .replace("~", "\\~")
-                .replace("`", "\\`")
-                .replace(">", "\\>")
-                .replace("#", "\\#")
-                .replace("+", "\\+")
-                .replace("-", "\\-")
-                .replace("=", "\\=")
-                .replace("|", "\\|")
-                .replace("{", "\\{")
-                .replace("}", "\\}")
-                .replace(".", "\\.")
-                .replace("!", "\\!");
-    }
 }
 
 

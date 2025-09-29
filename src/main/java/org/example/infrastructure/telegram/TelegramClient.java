@@ -38,6 +38,7 @@ public class TelegramClient implements MessengerPort {
         String body = formEncode(
                 "chat_id", chatId,
                 "text", text,
+                "parse_mode", "MarkdownV2",
                 "disable_web_page_preview", "true",
                 "allow_sending_without_reply", "true"
         );
