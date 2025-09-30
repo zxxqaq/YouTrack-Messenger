@@ -29,9 +29,9 @@ public final class Formatter {
             sb.append("```\n").append(sanitizeForTripleBacktick(n.comment)).append("\n```\n");
         }
 
-        if (hasStar(n)) {
-            sb.append("star: ⭐\n");
-        }
+        // if (hasStar(n)) {
+        //     sb.append("star: ⭐\n");
+        // }
 
         if (notBlank(n.status)) {
             sb.append("Status: `").append(codeV2(n.status)).append("`\n");
