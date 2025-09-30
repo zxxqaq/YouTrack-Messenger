@@ -3,6 +3,7 @@ package org.example.infrastructure.youtrack;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.*;
+import org.example.domain.model.ProjectInfo;
 import org.example.domain.port.IssueCreationPort;
 import org.springframework.stereotype.Component;
 
@@ -29,7 +30,7 @@ public class YouTrackIssueCreator implements IssueCreationPort {
     /**
      * Create a new issue in YouTrack with specified project
      * @param summary The issue summary/title
-     * @param projectId The project ID (e.g., "DEMO", "PROJ")
+     * @param projectId The project ID (e.g., "0-0")
      * @return The created issue ID
      * @throws IOException if creation fails
      */
@@ -43,6 +44,10 @@ public class YouTrackIssueCreator implements IssueCreationPort {
             summary.replace("\"", "\\\""), // Escape quotes
             projectId.replace("\"", "\\\"") // Escape quotes
         );
+        
+        System.out.println("DEBUG: Creating YouTrack issue with payload: " + jsonPayload);
+        System.out.println("DEBUG: YouTrack URL: " + url);
+        System.out.println("DEBUG: YouTrack Token: " + properties.getToken().substring(0, 10) + "...");
 
         RequestBody body = RequestBody.create(
             jsonPayload,
@@ -74,7 +79,7 @@ public class YouTrackIssueCreator implements IssueCreationPort {
     }
 
     @Override
-    public List<String> getAvailableProjects() throws IOException {
+    public List<ProjectInfo> getAvailableProjects() throws IOException {
         String base = normalizeBase(properties.getBaseUrl());
         HttpUrl url = HttpUrl.parse(base + "/api/admin/projects")
                 .newBuilder()
@@ -92,13 +97,14 @@ public class YouTrackIssueCreator implements IssueCreationPort {
             }
             
             JsonNode response = om.readTree(resp.body().byteStream());
-            List<String> projects = new ArrayList<>();
+            List<ProjectInfo> projects = new ArrayList<>();
             
             if (response.isArray()) {
                 for (JsonNode project : response) {
                     String projectId = project.path("id").asText();
+                    String projectName = project.path("name").asText();
                     if (!projectId.isEmpty()) {
-                        projects.add(projectId);
+                        projects.add(new ProjectInfo(projectId, projectName.isEmpty() ? projectId : projectName));
                     }
                 }
             }

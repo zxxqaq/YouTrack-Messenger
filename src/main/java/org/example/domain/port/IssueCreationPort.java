@@ -1,5 +1,6 @@
 package org.example.domain.port;
 
+import org.example.domain.model.ProjectInfo;
 import java.io.IOException;
 import java.util.List;
 
@@ -23,8 +24,8 @@ public interface IssueCreationPort {
 
     /**
      * Get list of available projects
-     * @return List of project IDs
+     * @return List of project information (ID and name)
      * @throws IOException if fetching fails
      */
-    List<String> getAvailableProjects() throws IOException;
+    List<ProjectInfo> getAvailableProjects() throws IOException;
 }

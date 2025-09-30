@@ -12,10 +12,12 @@ import java.io.IOException;
 public class TelegramWebhookHandler implements TelegramWebhookPort {
 
     private final InteractiveCommandService commandService;
+    private final TelegramClient telegramClient;
     private final ObjectMapper om = new ObjectMapper();
 
-    public TelegramWebhookHandler(InteractiveCommandService commandService) {
+    public TelegramWebhookHandler(InteractiveCommandService commandService, TelegramClient telegramClient) {
         this.commandService = commandService;
+        this.telegramClient = telegramClient;
     }
 
     @Override
@@ -24,21 +26,38 @@ public class TelegramWebhookHandler implements TelegramWebhookPort {
             return;
         }
 
-        String command = messageText.trim().toLowerCase();
+        try {
+            String command = messageText.trim().toLowerCase();
 
-        if (command.startsWith("/create")) {
-            commandService.processCreateCommand(messageText, chatId);
-        } else if (command.equals("/projects")) {
-            commandService.processProjectsCommand(chatId);
-        } else if (command.equals("/help")) {
-            commandService.processHelpCommand(chatId);
-        } else if (command.equals("/status")) {
-            commandService.processStatusCommand(chatId);
-        } else if (command.equals("/start")) {
-            commandService.processStartCommand(chatId);
-        } else if (command.startsWith("/")) {
-            // Unknown command
-            commandService.processUnknownCommand(messageText, chatId);
+            if (command.startsWith("/create")) {
+                commandService.processCreateCommand(messageText, chatId);
+            } else if (command.equals("/projects")) {
+                commandService.processProjectsCommand(chatId);
+            } else if (command.equals("/status")) {
+                commandService.processStatusCommand(chatId);
+            } else if (command.equals("/start")) {
+                commandService.processStartCommand(chatId);
+            } else if (command.startsWith("/")) {
+                // Unknown command
+                commandService.processUnknownCommand(messageText, chatId);
+            }
+        } catch (Exception e) {
+            // Send error message to user
+            String errorMsg = "❌ **Error processing command\\:**\n\n" +
+                "**Command\\:** `" + messageText + "`\n" +
+                "**Error\\:** " + e.getMessage().replace("-", "\\-").replace(".", "\\.").replace("(", "\\(").replace(")", "\\)") + "\n\n" +
+                "Please try again or use `/help` for available commands\\.";
+            
+            try {
+                telegramClient.sendToChat(chatId, errorMsg);
+            } catch (IOException sendError) {
+                System.err.println("Failed to send error message to Telegram: " + sendError.getMessage());
+                sendError.printStackTrace();
+            }
+            
+            // Log the original error
+            System.err.println("Error processing Telegram command: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -48,21 +67,27 @@ public class TelegramWebhookHandler implements TelegramWebhookPort {
      * @throws IOException if processing fails
      */
     public void processWebhook(String payload) throws IOException {
-        JsonNode root = om.readTree(payload);
-        
-        // Check if it's a message
-        JsonNode message = root.path("message");
-        if (message.isMissingNode()) {
-            return;
-        }
+        try {
+            JsonNode root = om.readTree(payload);
+            
+            // Check if it's a message
+            JsonNode message = root.path("message");
+            if (message.isMissingNode()) {
+                return;
+            }
 
-        String messageText = message.path("text").asText();
-        String chatId = message.path("chat").path("id").asText();
-        String userId = message.path("from").path("id").asText();
+            String messageText = message.path("text").asText();
+            String chatId = message.path("chat").path("id").asText();
+            String userId = message.path("from").path("id").asText();
 
-        // Only process text messages
-        if (!messageText.isEmpty()) {
-            processMessage(messageText, chatId, userId);
+            // Only process text messages
+            if (!messageText.isEmpty()) {
+                processMessage(messageText, chatId, userId);
+            }
+        } catch (Exception e) {
+            System.err.println("Error processing webhook payload: " + e.getMessage());
+            e.printStackTrace();
+            throw new IOException("Failed to process webhook: " + e.getMessage(), e);
         }
     }
 }

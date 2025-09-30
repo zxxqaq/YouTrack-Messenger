@@ -1,8 +1,8 @@
 package org.example.application.service;
 
+import org.example.domain.model.ProjectInfo;
 import org.example.domain.port.IssueCreationPort;
 import org.example.infrastructure.telegram.TelegramClient;
-import org.example.infrastructure.telegram.TelegramProperties;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -13,12 +13,10 @@ public class InteractiveCommandService {
 
     private final IssueCreationPort issueCreationPort;
     private final TelegramClient telegramClient;
-    private final TelegramProperties telegramProperties;
 
-    public InteractiveCommandService(IssueCreationPort issueCreationPort, TelegramClient telegramClient, TelegramProperties telegramProperties) {
+    public InteractiveCommandService(IssueCreationPort issueCreationPort, TelegramClient telegramClient) {
         this.issueCreationPort = issueCreationPort;
         this.telegramClient = telegramClient;
-        this.telegramProperties = telegramProperties;
     }
 
     /**
@@ -28,7 +26,7 @@ public class InteractiveCommandService {
      * @throws IOException if processing fails
      */
     public void processCreateCommand(String messageText, String chatId) throws IOException {
-        String targetChatId = telegramProperties.getPmChatId();
+        String targetChatId = chatId; // Reply to the same chat where command was sent
         // Extract summary and project from command
         String[] parts = extractCreateCommandParts(messageText);
         String summary = parts[0];
@@ -36,9 +34,18 @@ public class InteractiveCommandService {
         
         if (summary.isEmpty()) {
             String errorMsg = "❌ Please provide a summary for the issue\\.\n\n" +
-                "Usage\\: `/create Your issue summary here`\n" +
-                "Or\\: `/create Your issue summary here @PROJECT_ID`\n\n" +
-                "Available projects\\: Use `/projects` to see available projects";
+                "Usage\\: `/create Your issue summary @PROJECT_ID`\n\n" +
+                "⚠️ **Required\\:** You must specify a project ID\\!\n" +
+                "Use `/projects` to see available projects";
+            telegramClient.sendToChat(targetChatId, errorMsg);
+            return;
+        }
+        
+        if (projectId.isEmpty()) {
+            String errorMsg = "❌ Please specify a project ID\\.\n\n" +
+                "Usage\\: `/create Your issue summary @PROJECT_ID`\n\n" +
+                "⚠️ **Required\\:** You must specify a project ID\\!\n" +
+                "Use `/projects` to see available projects";
             telegramClient.sendToChat(targetChatId, errorMsg);
             return;
         }
@@ -47,43 +54,115 @@ public class InteractiveCommandService {
             // Create issue in YouTrack
             String issueId = issueCreationPort.createIssue(summary, projectId);
             
+            // Get project name for display
+            String projectName = projectId; // Default to projectId if not found
+            try {
+                List<ProjectInfo> projects = issueCreationPort.getAvailableProjects();
+                for (ProjectInfo project : projects) {
+                    if (project.getId().equals(projectId)) {
+                        projectName = project.getName();
+                        break;
+                    }
+                }
+            } catch (IOException e) {
+                // If we can't fetch projects, just use the projectId
+                System.err.println("Failed to fetch projects for display: " + e.getMessage());
+            }
+            
             // Send success message
+            String escapedSummary = summary
+                .replace("-", "\\-")
+                .replace(".", "\\.")
+                .replace("(", "\\(")
+                .replace(")", "\\)")
+                .replace("{", "\\{")
+                .replace("}", "\\}")
+                .replace("_", "\\_")
+                .replace("*", "\\*")
+                .replace("[", "\\[")
+                .replace("]", "\\]")
+                .replace("~", "\\~")
+                .replace("`", "\\`")
+                .replace(">", "\\>")
+                .replace("#", "\\#")
+                .replace("+", "\\+")
+                .replace("=", "\\=")
+                .replace("|", "\\|");
+                
+            String escapedIssueId = issueId
+                .replace("-", "\\-")
+                .replace(".", "\\.")
+                .replace("(", "\\(")
+                .replace(")", "\\)")
+                .replace("{", "\\{")
+                .replace("}", "\\}")
+                .replace("_", "\\_")
+                .replace("*", "\\*")
+                .replace("[", "\\[")
+                .replace("]", "\\]")
+                .replace("~", "\\~")
+                .replace("`", "\\`")
+                .replace(">", "\\>")
+                .replace("#", "\\#")
+                .replace("+", "\\+")
+                .replace("=", "\\=")
+                .replace("|", "\\|");
+                
+            String escapedProjectName = projectName
+                .replace("-", "\\-")
+                .replace(".", "\\.")
+                .replace("(", "\\(")
+                .replace(")", "\\)")
+                .replace("{", "\\{")
+                .replace("}", "\\}")
+                .replace("_", "\\_")
+                .replace("*", "\\*")
+                .replace("[", "\\[")
+                .replace("]", "\\]")
+                .replace("~", "\\~")
+                .replace("`", "\\`")
+                .replace(">", "\\>")
+                .replace("#", "\\#")
+                .replace("+", "\\+")
+                .replace("=", "\\=")
+                .replace("|", "\\|");
+                
             String successMsg = String.format(
                 "✅ Issue created successfully\\!\n\n" +
                 " **Issue ID\\:** `%s`\n" +
                 " **Summary\\:** %s\n" +
-                " **Project\\:** `%s`\n" +
+                " **Project\\:** %s\n" +
                 " **Link\\:** [Open Issue](https://xianzhang\\.youtrack\\.cloud/issue/%s)",
-                issueId, summary, projectId, issueId
+                escapedIssueId, escapedSummary, escapedProjectName, escapedIssueId
             );
             
             telegramClient.sendToChat(targetChatId, successMsg);
             
         } catch (IOException e) {
-            String errorMsg = String.format("❌ Failed to create issue\\: %s", e.getMessage());
+            String errorMsg = String.format("❌ Failed to create issue\\: %s", 
+                e.getMessage()
+                    .replace("\\", "\\\\")
+                    .replace("-", "\\-")
+                    .replace(".", "\\.")
+                    .replace("(", "\\(")
+                    .replace(")", "\\)")
+                    .replace("{", "\\{")
+                    .replace("}", "\\}")
+                    .replace("_", "\\_")
+                    .replace("*", "\\*")
+                    .replace("[", "\\[")
+                    .replace("]", "\\]")
+                    .replace("~", "\\~")
+                    .replace("`", "\\`")
+                    .replace(">", "\\>")
+                    .replace("#", "\\#")
+                    .replace("+", "\\+")
+                    .replace("=", "\\=")
+                    .replace("|", "\\|"));
             telegramClient.sendToChat(targetChatId, errorMsg);
         }
     }
 
-    /**
-     * Process help command
-     * @param chatId The chat ID to send response to (ignored, uses configured pmChatId)
-     * @throws IOException if sending fails
-     */
-    public void processHelpCommand(String chatId) throws IOException {
-        String targetChatId = telegramProperties.getPmChatId();
-        String helpMsg = 
-            "🤖 **YouTrack Bot Commands\\:**\n\n" +
-            " `/create <summary>` \\- Create a new issue \\(default in drafts\\)\n" +
-            " `/create <summary> @PROJECT_ID` \\- Create issue in specific project\n" +
-            "   Example\\: `/create Fix login bug`\n" +
-            "   Example\\: `/create Fix login bug @DEMO`\n\n" +
-            " `/projects` \\- Show available projects\n\n" +
-            " `/help` \\- Show this help message\n\n" +
-            " `/status` \\- Show bot status";
-            
-        telegramClient.sendToChat(targetChatId, helpMsg);
-    }
 
     /**
      * Process projects command
@@ -91,9 +170,9 @@ public class InteractiveCommandService {
      * @throws IOException if sending fails
      */
     public void processProjectsCommand(String chatId) throws IOException {
-        String targetChatId = telegramProperties.getPmChatId();
+        String targetChatId = chatId; // Reply to the same chat where command was sent
         try {
-            List<String> projects = issueCreationPort.getAvailableProjects();
+            List<ProjectInfo> projects = issueCreationPort.getAvailableProjects();
             
             if (projects.isEmpty()) {
                 String errorMsg = "❌ No projects found or failed to fetch projects";
@@ -102,11 +181,10 @@ public class InteractiveCommandService {
             }
             
             StringBuilder projectsMsg = new StringBuilder("🏗️ **Available Projects\\:**\n\n");
-            // TODO: add project name
-            for (String project : projects) {
-                projectsMsg.append("• `").append(project).append("`\n");
+            for (ProjectInfo project : projects) {
+                projectsMsg.append("• **").append(project.getName()).append("** \\- `").append(project.getId()).append("`\n");
             }
-            projectsMsg.append("\n **Usage\\:** `/create Your summary @PROJECT_ID`");
+            projectsMsg.append(" **Example\\:** `/create Fix login bug @").append(projects.get(0).getId()).append("`");
             
             telegramClient.sendToChat(targetChatId, projectsMsg.toString());
             
@@ -122,14 +200,33 @@ public class InteractiveCommandService {
      * @throws IOException if sending fails
      */
     public void processStatusCommand(String chatId) throws IOException {
-        String targetChatId = telegramProperties.getPmChatId();
-        String statusMsg = 
-            "🤖 **Bot Status\\:** ✅ Online\n" +
-            "📡 **YouTrack\\:** Connected\n" +
-            "⏰ **Scheduler\\:** Running\n" +
-            "💾 **Database\\:** Connected";
+        String targetChatId = chatId; // Reply to the same chat where command was sent
+        
+        try {
+            // Test YouTrack connection
+            List<ProjectInfo> projects = issueCreationPort.getAvailableProjects();
+            String youtrackStatus = projects.isEmpty() ? "❌ Disconnected" : "✅ Connected";
             
-        telegramClient.sendToChat(targetChatId, statusMsg);
+            String statusMsg = 
+                "🤖 **Bot Status\\:** ✅ Online\n" +
+                "📡 **YouTrack\\:** " + youtrackStatus + "\n" +
+                "⏰ **Scheduler\\:** Running\n" +
+                "💾 **Database\\:** Connected\n" +
+                "🌐 **Webhook\\:** Active";
+            
+            telegramClient.sendToChat(targetChatId, statusMsg);
+            
+        } catch (Exception e) {
+            String errorMsg = 
+                "🤖 **Bot Status\\:** ⚠️ Partial\n" +
+                "📡 **YouTrack\\:** ❌ Connection Failed\n" +
+                "⏰ **Scheduler\\:** Running\n" +
+                "💾 **Database\\:** Connected\n" +
+                "🌐 **Webhook\\:** Active\n\n" +
+                "**Error\\:** " + e.getMessage().replace("-", "\\-").replace(".", "\\.").replace("(", "\\(").replace(")", "\\)");
+            
+            telegramClient.sendToChat(targetChatId, errorMsg);
+        }
     }
 
     /**
@@ -138,17 +235,17 @@ public class InteractiveCommandService {
      * @throws IOException if sending fails
      */
     public void processStartCommand(String chatId) throws IOException {
-        String targetChatId = telegramProperties.getPmChatId();
+        String targetChatId = chatId; // Reply to the same chat where command was sent
         String startMsg = 
             "🤖 **Welcome to YouTrack Messenger Bot\\!**\n\n" +
             "I can help you manage YouTrack issues directly from Telegram\\.\n\n" +
             "📋 **Available Commands\\:**\n" +
-            " `/help` \\- Show all commands\n" +
-            " `/create <summary>` \\- Create a new issue\n" +
+            " `/create <summary> @PROJECT_ID` \\- Create a new issue\n" +
             " `/projects` \\- Show available projects\n" +
             " `/status` \\- Show bot status\n\n" +
-            "💡 **Example\\:** `/create Fix login bug`\n" +
-            "💡 **With project\\:** `/create Fix login bug @0-0`\n\n" +
+            "⚠️ **Important\\:** You must specify a project ID when creating issues\\!\n" +
+            "💡 **Example\\:** `/create Fix login bug @0\\-0`\n" +
+            "💡 **Tip\\:** Use `/projects` first to see available project IDs\\!\n\n" +
             "Let's get started\\! 🚀";
             
         telegramClient.sendToChat(targetChatId, startMsg);
@@ -161,22 +258,21 @@ public class InteractiveCommandService {
      * @throws IOException if sending fails
      */
     public void processUnknownCommand(String messageText, String chatId) throws IOException {
-        String targetChatId = telegramProperties.getPmChatId();
+        String targetChatId = chatId; // Reply to the same chat where command was sent
         String unknownMsg = 
             "❓ **Unknown command\\:** `" + messageText + "`\n\n" +
             "📋 **Available commands\\:**\n" +
-            " `/help` \\- Show all commands\n" +
-            " `/create <summary>` \\- Create a new issue\n" +
+            " `/create <summary> @PROJECT_ID` \\- Create a new issue\n" +
             " `/projects` \\- Show available projects\n" +
             " `/status` \\- Show bot status\n\n" +
-            "Type `/help` for detailed information\\.";
+            "💡 **Tip\\:** Use `/projects` first to see available project IDs\\!";
             
         telegramClient.sendToChat(targetChatId, unknownMsg);
     }
 
     private String[] extractCreateCommandParts(String messageText) {
         if (messageText == null || !messageText.startsWith("/create")) {
-            return new String[]{"", "DEMO"};
+            return new String[]{"", ""};
         }
         
         String content = messageText.substring("/create".length()).trim();
@@ -191,7 +287,7 @@ public class InteractiveCommandService {
             }
         }
         
-        // No project specified, use default
-        return new String[]{content, "DEMO"};
+        // No project specified, return empty project ID to indicate error
+        return new String[]{content, ""};
     }
 }
