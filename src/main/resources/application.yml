@@ -14,4 +14,10 @@ logging:
   level:
     root: INFO
 
+scheduler:
+  enabled: true
+  fixed-delay: PT10M
+  initial-delay: PT10M
+  top: 20
+
 
