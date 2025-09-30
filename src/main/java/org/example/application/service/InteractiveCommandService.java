@@ -68,14 +68,14 @@ public class InteractiveCommandService {
      */
     public void processHelpCommand(String chatId) throws IOException {
         String helpMsg = 
-            "🤖 **YouTrack Bot Commands:**\n\n" +
-            "📝 `/create <summary>` - Create a new issue (default project)\n" +
-            "📝 `/create <summary> @PROJECT_ID` - Create issue in specific project\n" +
-            "   Example: `/create Fix login bug`\n" +
-            "   Example: `/create Fix login bug @DEMO`\n\n" +
-            "🏗️ `/projects` - Show available projects\n\n" +
-            "❓ `/help` - Show this help message\n\n" +
-            "📊 `/status` - Show bot status";
+            "🤖 **YouTrack Bot Commands\\:**\n\n" +
+            "📝 `/create <summary>` \\- Create a new issue \\(default project\\)\n" +
+            "📝 `/create <summary> @PROJECT_ID` \\- Create issue in specific project\n" +
+            "   Example\\: `/create Fix login bug`\n" +
+            "   Example\\: `/create Fix login bug @DEMO`\n\n" +
+            "🏗️ `/projects` \\- Show available projects\n\n" +
+            "❓ `/help` \\- Show this help message\n\n" +
+            "📊 `/status` \\- Show bot status";
             
         telegramClient.sendToChat(chatId, helpMsg);
     }
@@ -122,6 +122,46 @@ public class InteractiveCommandService {
             "💾 **Database:** Connected";
             
         telegramClient.sendToChat(chatId, statusMsg);
+    }
+
+    /**
+     * Process start command
+     * @param chatId The chat ID to send response to
+     * @throws IOException if sending fails
+     */
+    public void processStartCommand(String chatId) throws IOException {
+        String startMsg = 
+            "🤖 **Welcome to YouTrack Messenger Bot\\!**\n\n" +
+            "I can help you manage YouTrack issues directly from Telegram\\.\n\n" +
+            "📋 **Available Commands\\:**\n" +
+            "\\• `/help` \\- Show all commands\n" +
+            "\\• `/create <summary>` \\- Create a new issue\n" +
+            "\\• `/projects` \\- Show available projects\n" +
+            "\\• `/status` \\- Show bot status\n\n" +
+            "💡 **Example\\:** `/create Fix login bug`\n" +
+            "💡 **With project\\:** `/create Fix login bug @DEMO`\n\n" +
+            "Let's get started\\! 🚀";
+            
+        telegramClient.sendToChat(chatId, startMsg);
+    }
+
+    /**
+     * Process unknown command
+     * @param messageText The unknown command text
+     * @param chatId The chat ID to send response to
+     * @throws IOException if sending fails
+     */
+    public void processUnknownCommand(String messageText, String chatId) throws IOException {
+        String unknownMsg = 
+            "❓ **Unknown command\\:** `" + messageText + "`\n\n" +
+            "📋 **Available commands\\:**\n" +
+            "\\• `/help` \\- Show all commands\n" +
+            "\\• `/create <summary>` \\- Create a new issue\n" +
+            "\\• `/projects` \\- Show available projects\n" +
+            "\\• `/status` \\- Show bot status\n\n" +
+            "Type `/help` for detailed information\\.";
+            
+        telegramClient.sendToChat(chatId, unknownMsg);
     }
 
     private String[] extractCreateCommandParts(String messageText) {

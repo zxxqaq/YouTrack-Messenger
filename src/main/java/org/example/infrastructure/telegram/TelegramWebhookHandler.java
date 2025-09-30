@@ -34,12 +34,11 @@ public class TelegramWebhookHandler implements TelegramWebhookPort {
             commandService.processHelpCommand(chatId);
         } else if (command.equals("/status")) {
             commandService.processStatusCommand(chatId);
+        } else if (command.equals("/start")) {
+            commandService.processStartCommand(chatId);
         } else if (command.startsWith("/")) {
             // Unknown command
-            String unknownMsg = "❓ Unknown command. Type `/help` for available commands.";
-            // Note: We would need to send this back to the specific chat
-            // For now, we'll just log it
-            System.out.println("Unknown command: " + messageText);
+            commandService.processUnknownCommand(messageText, chatId);
         }
     }
 
