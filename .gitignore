@@ -1,6 +1,11 @@
 # Local Spring profiles
 src/main/resources/application-local.yml
 
+# H2 Database files
+data/
+*.db
+*.trace.db
+
 # Gradle
 .gradle/
 build/

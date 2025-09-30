@@ -20,4 +20,27 @@ scheduler:
   initial-delay: PT10M
   top: 20
 
+storage:
+  cleanup:
+    enabled: true
+    days-to-keep: 30
+
+spring:
+  datasource:
+    url: jdbc:h2:file:./data/notificationdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jpa:
+    hibernate:
+      ddl-auto: update  # 改为update，保持数据持久化
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
 

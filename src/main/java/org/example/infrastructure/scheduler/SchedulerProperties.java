@@ -8,6 +8,7 @@ public class SchedulerProperties {
     private String fixedDelay = "PT10M";     // ISO-8601 duration
     private String initialDelay = "PT10M";   // ISO-8601 duration
     private int top = 20;
+    private Pagination pagination = new Pagination();
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -17,6 +18,21 @@ public class SchedulerProperties {
     public void setInitialDelay(String initialDelay) { this.initialDelay = initialDelay; }
     public int getTop() { return top; }
     public void setTop(int top) { this.top = top; }
+    public Pagination getPagination() { return pagination; }
+    public void setPagination(Pagination pagination) { this.pagination = pagination; }
+
+    public static class Pagination {
+        private boolean enabled = false;
+        private int pageSize = 1;
+        private String delayBetweenMessages = "PT1S"; // ISO-8601 duration
+
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        public int getPageSize() { return pageSize; }
+        public void setPageSize(int pageSize) { this.pageSize = pageSize; }
+        public String getDelayBetweenMessages() { return delayBetweenMessages; }
+        public void setDelayBetweenMessages(String delayBetweenMessages) { this.delayBetweenMessages = delayBetweenMessages; }
+    }
 }
 
 

@@ -13,6 +13,8 @@ repositories { mavenCentral() }
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")
+    implementation("org.springframework.boot:spring-boot-starter-data-jpa") // For database storage
+    implementation("com.h2database:h2") // H2 in-memory database
 
     // HTTP client
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

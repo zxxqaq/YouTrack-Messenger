@@ -31,12 +31,23 @@ public class YouTrackClient implements IssueTrackerPort {
 
     @Override
     public List<NotificationView> fetchNotifications(int top) throws IOException {
+        return fetchNotificationsFromTimestamp(null, top);
+    }
+
+    @Override
+    public List<NotificationView> fetchNotificationsFromTimestamp(String timestampCursor, int top) throws IOException {
         String base = normalizeBase(properties.getBaseUrl());
-        HttpUrl url = HttpUrl.parse(base + "/api/users/notifications")
+        HttpUrl.Builder urlBuilder = HttpUrl.parse(base + "/api/users/notifications")
                 .newBuilder()
                 .addQueryParameter("fields", "id,content,metadata,read,updated")
-                .addQueryParameter("$top", String.valueOf(top))
-                .build();
+                .addQueryParameter("$top", String.valueOf(top));
+        
+        // Add timestamp filter if provided
+        if (timestampCursor != null) {
+            urlBuilder.addQueryParameter("updated", ">" + timestampCursor);
+        }
+        
+        HttpUrl url = urlBuilder.build();
 
         Request req = new Request.Builder()
                 .url(url)
@@ -80,7 +91,7 @@ public class YouTrackClient implements IssueTrackerPort {
                     x.title = summary;
                     x.status = state;
                     x.read = n.path("read").asBoolean(false);
-                    x.updated = "";
+                    x.updated = n.path("updated").asText(""); // Get updated timestamp from API
                     x.issueId = issueId;
                     x.assignee = assignee;
                     x.priority = priority;

@@ -11,7 +11,7 @@ public class NotificationScheduler {
 
     private final NotifyIssueService notifyIssueService;
 
-    @Value("${scheduler.top:20}")
+    @Value("${scheduler.top:5}")
     private int top;
 
     public NotificationScheduler(NotifyIssueService notifyIssueService) {
