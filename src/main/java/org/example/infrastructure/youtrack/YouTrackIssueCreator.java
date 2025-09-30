@@ -23,7 +23,7 @@ public class YouTrackIssueCreator implements IssueCreationPort {
 
     @Override
     public String createIssue(String summary) throws IOException {
-        return createIssue(summary, "DEMO"); // Default to DEMO project
+        return createIssue(summary, "0-0"); // Default to Demo project
     }
 
     /**
@@ -37,9 +37,9 @@ public class YouTrackIssueCreator implements IssueCreationPort {
         String base = normalizeBase(properties.getBaseUrl());
         HttpUrl url = HttpUrl.parse(base + "/api/issues").newBuilder().build();
 
-        // Create issue payload with Draft status
+        // Create issue payload
         String jsonPayload = String.format(
-            "{\"summary\": \"%s\", \"project\": {\"id\": \"%s\"}, \"fields\": [{\"name\": \"State\", \"value\": \"Draft\"}]}",
+            "{\"summary\": \"%s\", \"project\": {\"id\": \"%s\"}}",
             summary.replace("\"", "\\\""), // Escape quotes
             projectId.replace("\"", "\\\"") // Escape quotes
         );
@@ -58,7 +58,8 @@ public class YouTrackIssueCreator implements IssueCreationPort {
 
         try (Response resp = http.newCall(req).execute()) {
             if (!resp.isSuccessful()) {
-                throw new IOException("YouTrack " + resp.code() + ": " + resp.message());
+                String errorBody = resp.body() != null ? resp.body().string() : "No error body";
+                throw new IOException("YouTrack " + resp.code() + ": " + resp.message() + " - " + errorBody);
             }
             
             JsonNode response = om.readTree(resp.body().byteStream());
