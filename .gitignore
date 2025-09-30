@@ -1,3 +1,13 @@
+# Local Spring profiles
+src/main/resources/application-local.yml
+
+# Gradle
+.gradle/
+build/
+
+# OS
+.DS_Store
+
 .gradle
 build/
 !gradle/wrapper/gradle-wrapper.jar
