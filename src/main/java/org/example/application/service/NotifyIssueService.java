@@ -33,11 +33,11 @@ public class NotifyIssueService {
     }
 
 
-    public void sendAllToGroup(int top) throws IOException {
-        System.out.println("Starting to fetch all notifications (ignoring top parameter)");
+    public void sendAllToPm(int top) throws IOException {
+        System.out.println("Starting to fetch notifications and send to PM, top=" + top);
 
-        // Fetch all notifications (use a large number to get all)
-        List<NotificationView> allNotifications = fetch(1000); // Fetch up to 1000 notifications
+        // Fetch notifications with specified top parameter
+        List<NotificationView> allNotifications = fetch(top);
         System.out.println("Fetched " + allNotifications.size() + " total notifications");
 
         // Debug: Print all notification IDs
@@ -62,17 +62,19 @@ public class NotifyIssueService {
         }
 
         // Send notifications with pagination
-        sendNotificationsWithPagination(newNotifications);
+        sendNotificationsWithPaginationToPm(newNotifications);
 
         // Mark new notifications as sent
         Set<String> newSentIds = newNotifications.stream()
                 .map(n -> n.id)
                 .collect(Collectors.toSet());
         storagePort.markAsSent(newSentIds);
-        System.out.println("All new notifications sent successfully and marked as sent");
+        System.out.println("All new notifications sent to PM successfully and marked as sent");
     }
     
-    private void sendNotificationsWithPagination(List<NotificationView> notifications) throws IOException {
+
+
+    private void sendNotificationsWithPaginationToPm(List<NotificationView> notifications) throws IOException {
         SchedulerProperties.Pagination pagination = schedulerProperties.getPagination();
         
         if (pagination.isEnabled()) {
@@ -80,18 +82,18 @@ public class NotifyIssueService {
             int pageSize = pagination.getPageSize();
             int delayMs = parseDurationToMs(pagination.getDelayBetweenMessages());
             
-            System.out.println("Sending with pagination: pageSize=" + pageSize + ", delay=" + delayMs + "ms");
+            System.out.println("Sending to PM with pagination: pageSize=" + pageSize + ", delay=" + delayMs + "ms");
             
             for (int i = 0; i < notifications.size(); i += pageSize) {
                 int endIndex = Math.min(i + pageSize, notifications.size());
                 List<NotificationView> page = notifications.subList(i, endIndex);
                 
-                System.out.println("Sending page " + (i/pageSize + 1) + " (" + page.size() + " notifications)");
+                System.out.println("Sending page " + (i/pageSize + 1) + " (" + page.size() + " notifications) to PM");
                 
                 for (NotificationView n : page) {
                     String msg = formatForTelegram(n);
                     System.out.println("Sending message: " + msg);
-                    messengerPort.sendToGroup(msg);
+                    messengerPort.sendToPm(msg);
                     
                     if (delayMs > 0) {
                         try {
@@ -108,7 +110,7 @@ public class NotifyIssueService {
             for (NotificationView n : notifications) {
                 String msg = formatForTelegram(n);
                 System.out.println("Sending message: " + msg);
-                messengerPort.sendToGroup(msg);
+                messengerPort.sendToPm(msg);
             }
         }
     }

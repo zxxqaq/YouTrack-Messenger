@@ -23,7 +23,7 @@ public class NotificationController {
     @PostMapping("/broadcast")
     public void broadcast(@RequestParam(name = "top", required = false) @Min(1) Integer top) throws Exception {
         int actualTop = (top != null) ? top : schedulerProperties.getTop();
-        notifyIssueService.sendAllToGroup(actualTop);
+        notifyIssueService.sendAllToPm(actualTop);
     }
 }
 

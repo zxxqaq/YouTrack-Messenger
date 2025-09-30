@@ -25,7 +25,7 @@ public class NotificationScheduler {
     )
     public void pullAndBroadcast() {
         try {
-            notifyIssueService.sendAllToGroup(top);
+            notifyIssueService.sendAllToPm(top);
         } catch (Exception e) {
             System.err.println("[Scheduler] broadcast failed: " + e.getMessage());
         }
