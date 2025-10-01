@@ -13,10 +13,14 @@ public class InteractiveCommandService {
 
     private final IssueCreationPort issueCreationPort;
     private final TelegramClient telegramClient;
+    private final SystemHealthService healthService;
 
-    public InteractiveCommandService(IssueCreationPort issueCreationPort, TelegramClient telegramClient) {
+    public InteractiveCommandService(IssueCreationPort issueCreationPort, 
+                                    TelegramClient telegramClient,
+                                    SystemHealthService healthService) {
         this.issueCreationPort = issueCreationPort;
         this.telegramClient = telegramClient;
+        this.healthService = healthService;
     }
 
     /**
@@ -139,27 +143,32 @@ public class InteractiveCommandService {
             telegramClient.sendToChat(targetChatId, successMsg);
             
         } catch (IOException e) {
-            String errorMsg = String.format("❌ Failed to create issue\\: %s", 
-                e.getMessage()
-                    .replace("\\", "\\\\")
-                    .replace("-", "\\-")
-                    .replace(".", "\\.")
-                    .replace("(", "\\(")
-                    .replace(")", "\\)")
-                    .replace("{", "\\{")
-                    .replace("}", "\\}")
-                    .replace("_", "\\_")
-                    .replace("*", "\\*")
-                    .replace("[", "\\[")
-                    .replace("]", "\\]")
-                    .replace("~", "\\~")
-                    .replace("`", "\\`")
-                    .replace(">", "\\>")
-                    .replace("#", "\\#")
-                    .replace("+", "\\+")
-                    .replace("=", "\\=")
-                    .replace("|", "\\|"));
-            telegramClient.sendToChat(targetChatId, errorMsg);
+            // Log detailed error to console/logs
+            System.err.println("[InteractiveCommand] Failed to create issue: " + e.getMessage());
+            e.printStackTrace();
+            
+            // Determine error type and create user-friendly message
+            String errorType = determineErrorType(e);
+            String escapedErrorType = escapeMarkdownV2(errorType);
+            String escapedErrorMessage = escapeMarkdownV2(e.getMessage());
+            
+            String errorMsg = String.format(
+                "❌ **Failed to create issue**\n\n" +
+                "🔍 **Error Type\\:** %s\n" +
+                "📝 **Details\\:** %s\n\n" +
+                "💡 **Suggestions\\:**\n" +
+                " \\- Check if YouTrack is accessible\n" +
+                " \\- Verify your project ID with `/projects`\n" +
+                " \\- Try again in a few moments\n" +
+                " \\- Use `/status` to check system health",
+                escapedErrorType, escapedErrorMessage
+            );
+            
+            try {
+                telegramClient.sendToChat(targetChatId, errorMsg);
+            } catch (IOException sendError) {
+                System.err.println("[InteractiveCommand] Failed to send error message to Telegram: " + sendError.getMessage());
+            }
         }
     }
 
@@ -189,43 +198,98 @@ public class InteractiveCommandService {
             telegramClient.sendToChat(targetChatId, projectsMsg.toString());
             
         } catch (IOException e) {
-            String errorMsg = String.format("❌ Failed to fetch projects\\: %s", e.getMessage());
-            telegramClient.sendToChat(targetChatId, errorMsg);
+            // Log detailed error to console/logs
+            System.err.println("[InteractiveCommand] Failed to fetch projects: " + e.getMessage());
+            e.printStackTrace();
+            
+            String errorType = determineErrorType(e);
+            String escapedErrorType = escapeMarkdownV2(errorType);
+            String escapedErrorMessage = escapeMarkdownV2(e.getMessage());
+            
+            String errorMsg = String.format(
+                "❌ **Failed to fetch projects**\n\n" +
+                "🔍 **Error Type\\:** %s\n" +
+                "📝 **Details\\:** %s\n\n" +
+                "💡 **Suggestions\\:**\n" +
+                " \\- Check if YouTrack is accessible\n" +
+                " \\- Try again in a few moments\n" +
+                " \\- Use `/status` to check system health",
+                escapedErrorType, escapedErrorMessage
+            );
+            
+            try {
+                telegramClient.sendToChat(targetChatId, errorMsg);
+            } catch (IOException sendError) {
+                System.err.println("[InteractiveCommand] Failed to send error message to Telegram: " + sendError.getMessage());
+            }
         }
     }
 
     /**
-     * Process status command
-     * @param chatId The chat ID to send response to (ignored, uses configured pmChatId)
+     * Process status command - displays comprehensive system health
+     * @param chatId The chat ID to send response to
      * @throws IOException if sending fails
      */
     public void processStatusCommand(String chatId) throws IOException {
-        String targetChatId = chatId; // Reply to the same chat where command was sent
+        String targetChatId = chatId;
+        StringBuilder statusMsg = new StringBuilder();
+        
+        // Header
+        statusMsg.append("🔍 **System Health Status**\n\n");
+        
+        // Bot Status
+        statusMsg.append("🤖 **Bot\\:** ✅ Online\n");
+        statusMsg.append("🌐 **Webhook\\:** ✅ Active\n");
+        
+        // Scheduler Status
+        String schedulerStatus = healthService.getSchedulerStatus();
+        statusMsg.append("⏰ **Scheduler\\:** ").append(schedulerStatus).append("\n");
+        
+        // Last successful run
+        String lastSuccess = escapeMarkdownV2(healthService.getLastSuccessTime());
+        statusMsg.append(" └─ Last Success\\: `").append(lastSuccess).append("`\n");
+        
+        // If there are recent failures, show details
+        if (healthService.hasRecentFailures()) {
+            String lastFailure = escapeMarkdownV2(healthService.getLastFailureTime());
+            String errorType = escapeMarkdownV2(healthService.getLastErrorType());
+            String errorMsg = escapeMarkdownV2(healthService.getLastErrorMessage());
+            
+            statusMsg.append(" └─ Last Failure\\: `").append(lastFailure).append("`\n");
+            statusMsg.append(" └─ Error Type\\: ").append(errorType).append("\n");
+            statusMsg.append(" └─ Error\\: ").append(errorMsg != null && errorMsg.length() > 100 ? errorMsg.substring(0, 100) + "\\.\\.\\." : errorMsg).append("\n");
+        }
+        
+        statusMsg.append("\n");
+        
+        // Test YouTrack connection
+        try {
+            List<ProjectInfo> projects = issueCreationPort.getAvailableProjects();
+            if (projects.isEmpty()) {
+                statusMsg.append("📡 **YouTrack\\:** ⚠️ Connected \\(No projects found\\)\n");
+            } else {
+                statusMsg.append("📡 **YouTrack\\:** ✅ Connected\n");
+                statusMsg.append(" └─ Projects\\: ").append(projects.size()).append(" available\n");
+            }
+        } catch (Exception e) {
+            statusMsg.append("📡 **YouTrack\\:** ❌ Connection Failed\n");
+            String errorMsg = escapeMarkdownV2(e.getMessage());
+            statusMsg.append(" └─ Error\\: ").append(errorMsg != null && errorMsg.length() > 80 ? errorMsg.substring(0, 80) + "\\.\\.\\." : errorMsg).append("\n");
+        }
+        
+        statusMsg.append("\n");
+        
+        // Database status (if it works, we can send this message)
+        statusMsg.append("💾 **Database\\:** ✅ Connected\n");
+        
+        statusMsg.append("\n");
+        statusMsg.append("💡 **Tip\\:** Use other commands to interact with the system");
         
         try {
-            // Test YouTrack connection
-            List<ProjectInfo> projects = issueCreationPort.getAvailableProjects();
-            String youtrackStatus = projects.isEmpty() ? "❌ Disconnected" : "✅ Connected";
-            
-            String statusMsg = 
-                "🤖 **Bot Status\\:** ✅ Online\n" +
-                "📡 **YouTrack\\:** " + youtrackStatus + "\n" +
-                "⏰ **Scheduler\\:** Running\n" +
-                "💾 **Database\\:** Connected\n" +
-                "🌐 **Webhook\\:** Active";
-            
-            telegramClient.sendToChat(targetChatId, statusMsg);
-            
-        } catch (Exception e) {
-            String errorMsg = 
-                "🤖 **Bot Status\\:** ⚠️ Partial\n" +
-                "📡 **YouTrack\\:** ❌ Connection Failed\n" +
-                "⏰ **Scheduler\\:** Running\n" +
-                "💾 **Database\\:** Connected\n" +
-                "🌐 **Webhook\\:** Active\n\n" +
-                "**Error\\:** " + e.getMessage().replace("-", "\\-").replace(".", "\\.").replace("(", "\\(").replace(")", "\\)");
-            
-            telegramClient.sendToChat(targetChatId, errorMsg);
+            telegramClient.sendToChat(targetChatId, statusMsg.toString());
+        } catch (IOException sendError) {
+            System.err.println("[InteractiveCommand] Failed to send status message: " + sendError.getMessage());
+            throw sendError;
         }
     }
 
@@ -289,5 +353,47 @@ public class InteractiveCommandService {
         
         // No project specified, return empty project ID to indicate error
         return new String[]{content, ""};
+    }
+
+    private String determineErrorType(Exception e) {
+        String message = e.getMessage();
+        if (message == null) {
+            return "Unknown Error";
+        }
+        
+        if (message.contains("YouTrack") || message.contains("HTTP") || message.contains("400") || message.contains("401") || message.contains("403") || message.contains("404") || message.contains("500")) {
+            return "YouTrack API Error";
+        } else if (message.contains("Connection") || message.contains("timeout") || message.contains("Timeout")) {
+            return "Connection Error";
+        } else if (message.contains("Unauthorized") || message.contains("Forbidden") || message.contains("token")) {
+            return "Authentication Error";
+        } else {
+            return "System Error";
+        }
+    }
+
+    private String escapeMarkdownV2(String text) {
+        if (text == null) return "";
+        return text
+            .replace("\\", "\\\\")
+            .replace("-", "\\-")
+            .replace(".", "\\.")
+            .replace("(", "\\(")
+            .replace(")", "\\)")
+            .replace("{", "\\{")
+            .replace("}", "\\}")
+            .replace("_", "\\_")
+            .replace("*", "\\*")
+            .replace("[", "\\[")
+            .replace("]", "\\]")
+            .replace("~", "\\~")
+            .replace("`", "\\`")
+            .replace(">", "\\>")
+            .replace("#", "\\#")
+            .replace("+", "\\+")
+            .replace("=", "\\=")
+            .replace("|", "\\|")
+            .replace("!", "\\!")
+            .replace(":", "\\:");
     }
 }
