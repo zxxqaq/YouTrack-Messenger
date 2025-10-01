@@ -33,6 +33,16 @@ public class TelegramClient implements MessengerPort {
         sendMarkdownV2(properties.getPmChatId(), text);
     }
 
+    /**
+     * Send message to a specific chat ID
+     * @param chatId The chat ID to send to
+     * @param text The message text
+     * @throws IOException if sending fails
+     */
+    public void sendToChat(String chatId, String text) throws IOException {
+        sendMarkdownV2(chatId, text);
+    }
+
     private void sendMarkdownV2(String chatId, String text) throws IOException {
         String endpoint = "https://api.telegram.org/bot" + properties.getBotToken() + "/sendMessage";
         String body = formEncode(
