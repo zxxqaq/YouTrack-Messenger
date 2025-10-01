@@ -37,6 +37,10 @@ public class TelegramWebhookHandler implements TelegramWebhookPort {
                 commandService.processStatusCommand(chatId);
             } else if (command.equals("/start")) {
                 commandService.processStartCommand(chatId);
+            } else if (command.equals("/pull")) {
+                commandService.processPullCommand(chatId);
+            } else if (command.equals("/stop")) {
+                commandService.processStopCommand(chatId);
             } else if (command.startsWith("/")) {
                 // Unknown command
                 commandService.processUnknownCommand(messageText, chatId);

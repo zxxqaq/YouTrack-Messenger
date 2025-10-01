@@ -16,6 +16,8 @@ public class NotificationScheduler {
     private final MessengerPort messengerPort;
     private final SystemHealthService healthService;
     private static final int MAX_FAILURES_BEFORE_ALERT = 3;
+    
+    private volatile boolean isRunning = false; // Control flag for scheduler
 
     @Value("${scheduler.top:5}")
     private int top;
@@ -28,12 +30,15 @@ public class NotificationScheduler {
         this.healthService = healthService;
     }
 
-    // Configurable via application properties
+    // Configurable via application properties - no initial delay, starts only when user enables it
     @Scheduled(
-            fixedDelayString = "${scheduler.fixed-delay:PT10M}",
-            initialDelayString = "${scheduler.initial-delay:PT10M}"
+            fixedDelayString = "${scheduler.fixed-delay:PT10M}"
     )
     public void pullAndBroadcast() {
+        // Check if scheduler is enabled by user
+        if (!isRunning) {
+            return; // Skip execution if not enabled
+        }
         try {
             notifyIssueService.sendAllToPm(top);
             
@@ -135,6 +140,33 @@ public class NotificationScheduler {
             .replace("|", "\\|")
             .replace("!", "\\!")
             .replace(":", "\\:");
+    }
+    
+    /**
+     * Start the scheduler - enables notification pulling
+     */
+    public void start() {
+        if (!isRunning) {
+            isRunning = true;
+            System.out.println("[Scheduler] Started by user command");
+        }
+    }
+    
+    /**
+     * Stop the scheduler - disables notification pulling
+     */
+    public void stop() {
+        if (isRunning) {
+            isRunning = false;
+            System.out.println("[Scheduler] Stopped by user command");
+        }
+    }
+    
+    /**
+     * Check if scheduler is currently running
+     */
+    public boolean isRunning() {
+        return isRunning;
     }
 }
 

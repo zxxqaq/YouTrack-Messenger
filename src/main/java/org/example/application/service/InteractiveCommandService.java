@@ -14,13 +14,16 @@ public class InteractiveCommandService {
     private final IssueCreationPort issueCreationPort;
     private final TelegramClient telegramClient;
     private final SystemHealthService healthService;
+    private final NotificationScheduler notificationScheduler;
 
     public InteractiveCommandService(IssueCreationPort issueCreationPort, 
                                     TelegramClient telegramClient,
-                                    SystemHealthService healthService) {
+                                    SystemHealthService healthService,
+                                    NotificationScheduler notificationScheduler) {
         this.issueCreationPort = issueCreationPort;
         this.telegramClient = telegramClient;
         this.healthService = healthService;
+        this.notificationScheduler = notificationScheduler;
     }
 
     /**
@@ -241,26 +244,35 @@ public class InteractiveCommandService {
         statusMsg.append("🤖 **Bot\\:** ✅ Online\n");
         statusMsg.append("🌐 **Webhook\\:** ✅ Active\n");
         
-        // Scheduler Status
+        // Polling Status
+        boolean isPolling = notificationScheduler.isRunning();
+        String pollingStatus = isPolling ? "🟢 Running" : "⏸️ Paused";
+        statusMsg.append("📡 **Polling\\:** ").append(pollingStatus);
+        if (!isPolling) {
+            statusMsg.append(" \\(Use `/pull` to start\\)");
+        }
+        statusMsg.append("\n");
+        
+        // Scheduler Status (health)
         String schedulerStatus = healthService.getSchedulerStatus();
-        statusMsg.append("⏰ **Scheduler\\:** ").append(schedulerStatus).append("\n");
+        statusMsg.append("⏰ **Scheduler Health\\:** ").append(schedulerStatus).append("\n");
         
         // Last successful run
-        String lastSuccess = escapeMarkdownV2(healthService.getLastSuccessTime());
-        statusMsg.append(" └─ Last Success\\: `").append(lastSuccess).append("`\n");
+        // String lastSuccess = escapeMarkdownV2(healthService.getLastSuccessTime());
+        // statusMsg.append(" └─ Last Success\\: `").append(lastSuccess).append("`\n");
         
         // If there are recent failures, show details
-        if (healthService.hasRecentFailures()) {
-            String lastFailure = escapeMarkdownV2(healthService.getLastFailureTime());
-            String errorType = escapeMarkdownV2(healthService.getLastErrorType());
-            String errorMsg = escapeMarkdownV2(healthService.getLastErrorMessage());
+        // if (healthService.hasRecentFailures()) {
+        //     String lastFailure = escapeMarkdownV2(healthService.getLastFailureTime());
+        //     String errorType = escapeMarkdownV2(healthService.getLastErrorType());
+        //     String errorMsg = escapeMarkdownV2(healthService.getLastErrorMessage());
             
-            statusMsg.append(" └─ Last Failure\\: `").append(lastFailure).append("`\n");
-            statusMsg.append(" └─ Error Type\\: ").append(errorType).append("\n");
-            statusMsg.append(" └─ Error\\: ").append(errorMsg != null && errorMsg.length() > 100 ? errorMsg.substring(0, 100) + "\\.\\.\\." : errorMsg).append("\n");
-        }
+        //     statusMsg.append(" └─ Last Failure\\: `").append(lastFailure).append("`\n");
+        //     statusMsg.append(" └─ Error Type\\: ").append(errorType).append("\n");
+        //     statusMsg.append(" └─ Error\\: ").append(errorMsg != null && errorMsg.length() > 100 ? errorMsg.substring(0, 100) + "\\.\\.\\." : errorMsg).append("\n");
+        // }
         
-        statusMsg.append("\n");
+        // statusMsg.append("\n");
         
         // Test YouTrack connection
         try {
@@ -273,8 +285,8 @@ public class InteractiveCommandService {
             }
         } catch (Exception e) {
             statusMsg.append("📡 **YouTrack\\:** ❌ Connection Failed\n");
-            String errorMsg = escapeMarkdownV2(e.getMessage());
-            statusMsg.append(" └─ Error\\: ").append(errorMsg != null && errorMsg.length() > 80 ? errorMsg.substring(0, 80) + "\\.\\.\\." : errorMsg).append("\n");
+            // String errorMsg = escapeMarkdownV2(e.getMessage());
+            // statusMsg.append(" └─ Error\\: ").append(errorMsg != null && errorMsg.length() > 80 ? errorMsg.substring(0, 80) + "\\.\\.\\." : errorMsg).append("\n");
         }
         
         statusMsg.append("\n");
@@ -282,8 +294,7 @@ public class InteractiveCommandService {
         // Database status (if it works, we can send this message)
         statusMsg.append("💾 **Database\\:** ✅ Connected\n");
         
-        statusMsg.append("\n");
-        statusMsg.append("💡 **Tip\\:** Use other commands to interact with the system");
+
         
         try {
             telegramClient.sendToChat(targetChatId, statusMsg.toString());
@@ -300,19 +311,69 @@ public class InteractiveCommandService {
      */
     public void processStartCommand(String chatId) throws IOException {
         String targetChatId = chatId; // Reply to the same chat where command was sent
+        
+        boolean isPolling = notificationScheduler.isRunning();
+        String pollingStatus = isPolling ? "🟢 Running" : "⏸️ Paused";
+        
         String startMsg = 
             "🤖 **Welcome to YouTrack Messenger Bot\\!**\n\n" +
             "I can help you manage YouTrack issues directly from Telegram\\.\n\n" +
-            "📋 **Available Commands\\:**\n" +
+            "📋 **Available Commands\\:**\n\n" +
+            "**Issue Management\\:**\n" +
             " `/create <summary> @PROJECT_ID` \\- Create a new issue\n" +
-            " `/projects` \\- Show available projects\n" +
+            " `/projects` \\- Show available projects\n\n" +
+            "**Notification Control\\:**\n" +
+            " `/pull` \\- Start notification polling\n" +
+            " `/stop` \\- Stop notification polling\n" +
             " `/status` \\- Show bot status\n\n" +
-            "⚠️ **Important\\:** You must specify a project ID when creating issues\\!\n" +
-            "💡 **Example\\:** `/create Fix login bug @0\\-0`\n" +
-            "💡 **Tip\\:** Use `/projects` first to see available project IDs\\!\n\n" +
+            "📊 **Current Polling Status\\:** " + pollingStatus + "\n\n" +
             "Let's get started\\! 🚀";
             
         telegramClient.sendToChat(targetChatId, startMsg);
+    }
+
+    /**
+     * Process pull command - start the notification scheduler
+     * @param chatId The chat ID to send response to
+     * @throws IOException if sending fails
+     */
+    public void processPullCommand(String chatId) throws IOException {
+        String targetChatId = chatId;
+        
+        if (notificationScheduler.isRunning()) {
+            String msg = "⚠️ **Notification polling is already running\\!**\n\n" +
+                "The bot is actively pulling YouTrack notifications\\.\n" +
+                "Use `/stop` to pause polling\\.";
+            telegramClient.sendToChat(targetChatId, msg);
+        } else {
+            notificationScheduler.start();
+            String msg = "✅ **Notification polling started\\!**\n\n" +
+                "The bot will now automatically pull YouTrack notifications\\.\n" +
+                "💡 **Tip\\:** Use `/status` to check polling status";
+            telegramClient.sendToChat(targetChatId, msg);
+        }
+    }
+    
+    /**
+     * Process stop command - stop the notification scheduler
+     * @param chatId The chat ID to send response to
+     * @throws IOException if sending fails
+     */
+    public void processStopCommand(String chatId) throws IOException {
+        String targetChatId = chatId;
+        
+        if (!notificationScheduler.isRunning()) {
+            String msg = "⚠️ **Notification polling is not running\\!**\n\n" +
+                "The bot is currently paused\\.\n" +
+                "Use `/pull` to start polling\\.";
+            telegramClient.sendToChat(targetChatId, msg);
+        } else {
+            notificationScheduler.stop();
+            String msg = "⏸️ **Notification polling stopped\\!**\n\n" +
+                "The bot has paused pulling YouTrack notifications\\.\n" +
+                "💡 **Tip\\:** Use `/pull` to resume polling";
+            telegramClient.sendToChat(targetChatId, msg);
+        }
     }
 
     /**
@@ -328,7 +389,9 @@ public class InteractiveCommandService {
             "📋 **Available commands\\:**\n" +
             " `/create <summary> @PROJECT_ID` \\- Create a new issue\n" +
             " `/projects` \\- Show available projects\n" +
-            " `/status` \\- Show bot status\n\n" +
+            " `/status` \\- Show bot status\n" +
+            " `/pull` \\- Start notification polling\n" +
+            " `/stop` \\- Stop notification polling\n\n" +
             "💡 **Tip\\:** Use `/projects` first to see available project IDs\\!";
             
         telegramClient.sendToChat(targetChatId, unknownMsg);
