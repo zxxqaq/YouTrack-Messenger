@@ -30,6 +30,6 @@ tasks.withType<Test> {
 
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
     systemProperties = System.getProperties().mapKeys { it.key.toString() }
-    args("--spring.profiles.active=local")
+    args("--spring.profiles.active=local") // run the application with the application-local.yml profile
 }
 

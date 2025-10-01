@@ -2,13 +2,12 @@ server:
   port: 8080
 
 youtrack:
-  base-url: https://your-name.youtrack.cloud
-  token: your-token
+  base-url: ${YOUTRACK_BASE_URL}
+  token: ${YOUTRACK_TOKEN}
 
 telegram:
-  bot-token: your-bot-token
-  group-chat-id: your-group-chat-id
-  pm-chat-id: your-pm-chat-id
+  bot-token: ${TELEGRAM_BOT_TOKEN}
+  pm-chat-id: ${TELEGRAM_PM_CHAT_ID}
 
 logging:
   level:
@@ -18,8 +17,7 @@ logging:
 
 scheduler:
   enabled: true
-  fixed-delay: PT10S  # Reduced to 10 seconds for local testing
-  initial-delay: PT10S
+  fixed-delay: PT30S  # Production environment 30 seconds
   top: 1000
   pagination:
     enabled: true
@@ -29,17 +27,17 @@ scheduler:
 storage:
   cleanup:
     enabled: true
-    days-to-keep: 7 # Shorter retention for local testing
+    days-to-keep: 30  # Production environment keep 30 days
 
 spring:
   datasource:
-    url: jdbc:h2:mem:testdb
+    url: jdbc:h2:file:/app/data/notificationdb
     driver-class-name: org.h2.Driver
     username: sa
     password: 
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: update
     show-sql: false
   h2:
     console:
