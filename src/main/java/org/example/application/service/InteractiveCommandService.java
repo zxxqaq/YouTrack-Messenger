@@ -15,15 +15,18 @@ public class InteractiveCommandService {
     private final TelegramClient telegramClient;
     private final SystemHealthService healthService;
     private final NotificationScheduler notificationScheduler;
+    private final org.example.domain.port.NotificationStoragePort storagePort;
 
     public InteractiveCommandService(IssueCreationPort issueCreationPort, 
                                     TelegramClient telegramClient,
                                     SystemHealthService healthService,
-                                    NotificationScheduler notificationScheduler) {
+                                    NotificationScheduler notificationScheduler,
+                                    org.example.domain.port.NotificationStoragePort storagePort) {
         this.issueCreationPort = issueCreationPort;
         this.telegramClient = telegramClient;
         this.healthService = healthService;
         this.notificationScheduler = notificationScheduler;
+        this.storagePort = storagePort;
     }
 
     /**
@@ -42,7 +45,7 @@ public class InteractiveCommandService {
         if (summary.isEmpty()) {
             String errorMsg = "❌ Please provide a summary for the issue\\.\n\n" +
                 "Usage\\: `/create Your issue summary @PROJECT_ID`\n\n" +
-                "⚠️ **Required\\:** You must specify a project ID\\!\n" +
+                "⚠️ *Required\\:* You must specify a project ID\\!\n" +
                 "Use `/projects` to see available projects";
             telegramClient.sendToChat(targetChatId, errorMsg);
             return;
@@ -51,29 +54,42 @@ public class InteractiveCommandService {
         if (projectId.isEmpty()) {
             String errorMsg = "❌ Please specify a project ID\\.\n\n" +
                 "Usage\\: `/create Your issue summary @PROJECT_ID`\n\n" +
-                "⚠️ **Required\\:** You must specify a project ID\\!\n" +
+                "⚠️ *Required\\:* You must specify a project ID\\!\n" +
                 "Use `/projects` to see available projects";
             telegramClient.sendToChat(targetChatId, errorMsg);
             return;
         }
 
         try {
+            // Validate project ID exists
+            List<ProjectInfo> projects = issueCreationPort.getAvailableProjects();
+            boolean projectExists = projects.stream().anyMatch(p -> p.getId().equals(projectId));
+            
+            if (!projectExists) {
+                StringBuilder errorMsg = new StringBuilder();
+                errorMsg.append("❌ *Invalid Project ID\\:* `").append(escapeMarkdownV2(projectId)).append("`\n\n");
+                errorMsg.append("This project does not exist or you don\\'t have access to it\\.\n\n");
+                errorMsg.append("💡 *Available projects\\:*\n");
+                
+                for (ProjectInfo p : projects) {
+                    errorMsg.append("• *").append(p.getName()).append("* \\- `").append(p.getId()).append("`\n");
+                }
+        
+                
+                telegramClient.sendToChat(targetChatId, errorMsg.toString());
+                return;
+            }
+            
             // Create issue in YouTrack
             String issueId = issueCreationPort.createIssue(summary, projectId);
             
-            // Get project name for display
+            // Get project name for display (reuse the projects list we already fetched)
             String projectName = projectId; // Default to projectId if not found
-            try {
-                List<ProjectInfo> projects = issueCreationPort.getAvailableProjects();
-                for (ProjectInfo project : projects) {
-                    if (project.getId().equals(projectId)) {
-                        projectName = project.getName();
-                        break;
-                    }
+            for (ProjectInfo project : projects) {
+                if (project.getId().equals(projectId)) {
+                    projectName = project.getName();
+                    break;
                 }
-            } catch (IOException e) {
-                // If we can't fetch projects, just use the projectId
-                System.err.println("Failed to fetch projects for display: " + e.getMessage());
             }
             
             // Send success message
@@ -136,10 +152,10 @@ public class InteractiveCommandService {
                 
             String successMsg = String.format(
                 "✅ Issue created successfully\\!\n\n" +
-                " **Issue ID\\:** `%s`\n" +
-                " **Summary\\:** %s\n" +
-                " **Project\\:** %s\n" +
-                " **Link\\:** [Open Issue](https://xianzhang\\.youtrack\\.cloud/issue/%s)",
+                " *Issue ID\\:* `%s`\n" +
+                " *Summary\\:* %s\n" +
+                " *Project\\:* %s\n" +
+                " *Link\\:* [Open Issue](https://xianzhang\\.youtrack\\.cloud/issue/%s)",
                 escapedIssueId, escapedSummary, escapedProjectName, escapedIssueId
             );
             
@@ -156,10 +172,10 @@ public class InteractiveCommandService {
             String escapedErrorMessage = escapeMarkdownV2(e.getMessage());
             
             String errorMsg = String.format(
-                "❌ **Failed to create issue**\n\n" +
-                "🔍 **Error Type\\:** %s\n" +
-                "📝 **Details\\:** %s\n\n" +
-                "💡 **Suggestions\\:**\n" +
+                "❌ *Failed to create issue*\n\n" +
+                "🔍 *Error Type\\:* %s\n" +
+                "📝 *Details\\:* %s\n\n" +
+                "💡 *Suggestions\\:*\n" +
                 " \\- Check if YouTrack is accessible\n" +
                 " \\- Verify your project ID with `/projects`\n" +
                 " \\- Try again in a few moments\n" +
@@ -192,12 +208,11 @@ public class InteractiveCommandService {
                 return;
             }
             
-            StringBuilder projectsMsg = new StringBuilder("🏗️ **Available Projects\\:**\n\n");
+            StringBuilder projectsMsg = new StringBuilder("🏗️ *Available Projects\\:*\n\n");
             for (ProjectInfo project : projects) {
-                projectsMsg.append("• **").append(project.getName()).append("** \\- `").append(project.getId()).append("`\n");
+                projectsMsg.append("• *").append(project.getName()).append("* \\- `").append(project.getId()).append("`\n");
             }
-            projectsMsg.append(" **Example\\:** `/create Fix login bug @").append(projects.get(0).getId()).append("`");
-            
+
             telegramClient.sendToChat(targetChatId, projectsMsg.toString());
             
         } catch (IOException e) {
@@ -210,10 +225,10 @@ public class InteractiveCommandService {
             String escapedErrorMessage = escapeMarkdownV2(e.getMessage());
             
             String errorMsg = String.format(
-                "❌ **Failed to fetch projects**\n\n" +
-                "🔍 **Error Type\\:** %s\n" +
-                "📝 **Details\\:** %s\n\n" +
-                "💡 **Suggestions\\:**\n" +
+                "❌ *Failed to fetch projects*\n\n" +
+                "🔍 *Error Type\\:* %s\n" +
+                "📝 *Details\\:* %s\n\n" +
+                "💡 *Suggestions\\:*\n" +
                 " \\- Check if YouTrack is accessible\n" +
                 " \\- Try again in a few moments\n" +
                 " \\- Use `/status` to check system health",
@@ -238,16 +253,16 @@ public class InteractiveCommandService {
         StringBuilder statusMsg = new StringBuilder();
         
         // Header
-        statusMsg.append("🔍 **System Health Status**\n\n");
+        statusMsg.append("🔍 *System Health Status*\n\n");
         
         // Bot Status
-        statusMsg.append("🤖 **Bot\\:** ✅ Online\n");
-        statusMsg.append("🌐 **Webhook\\:** ✅ Active\n");
+        statusMsg.append("🤖 *Bot\\:* ✅ Online\n");
+        statusMsg.append("🌐 *Webhook\\:* ✅ Active\n");
         
         // Polling Status
         boolean isPolling = notificationScheduler.isRunning();
         String pollingStatus = isPolling ? "🟢 Running" : "⏸️ Paused";
-        statusMsg.append("📡 **Polling\\:** ").append(pollingStatus);
+        statusMsg.append("📡 *Polling\\:* ").append(pollingStatus);
         if (!isPolling) {
             statusMsg.append(" \\(Use `/pull` to start\\)");
         }
@@ -255,7 +270,7 @@ public class InteractiveCommandService {
         
         // Scheduler Status (health)
         String schedulerStatus = healthService.getSchedulerStatus();
-        statusMsg.append("⏰ **Scheduler Health\\:** ").append(schedulerStatus).append("\n");
+        statusMsg.append("⏰ *Scheduler Health\\:* ").append(schedulerStatus).append("\n");
         
         // Last successful run
         // String lastSuccess = escapeMarkdownV2(healthService.getLastSuccessTime());
@@ -278,23 +293,30 @@ public class InteractiveCommandService {
         try {
             List<ProjectInfo> projects = issueCreationPort.getAvailableProjects();
             if (projects.isEmpty()) {
-                statusMsg.append("📡 **YouTrack\\:** ⚠️ Connected \\(No projects found\\)\n");
+                statusMsg.append("📡 *YouTrack\\:* ⚠️ Connected \\(No projects found\\)\n");
             } else {
-                statusMsg.append("📡 **YouTrack\\:** ✅ Connected\n");
+                statusMsg.append("📡 *YouTrack\\:* ✅ Connected\n");
                 statusMsg.append(" └─ Projects\\: ").append(projects.size()).append(" available\n");
             }
         } catch (Exception e) {
-            statusMsg.append("📡 **YouTrack\\:** ❌ Connection Failed\n");
+            statusMsg.append("📡 *YouTrack\\:* ❌ Connection Failed\n");
             // String errorMsg = escapeMarkdownV2(e.getMessage());
             // statusMsg.append(" └─ Error\\: ").append(errorMsg != null && errorMsg.length() > 80 ? errorMsg.substring(0, 80) + "\\.\\.\\." : errorMsg).append("\n");
         }
         
         statusMsg.append("\n");
         
-        // Database status (if it works, we can send this message)
-        statusMsg.append("💾 **Database\\:** ✅ Connected\n");
+        // Test Database connection
+        try {
+            // Try to access database by getting all sent IDs
+            storagePort.getAllSentIds();
+            statusMsg.append("💾 *Database\\:* ✅ Connected\n");
+        } catch (Exception e) {
+            statusMsg.append("💾 *Database\\:* ❌ Connection Failed\n");
+            String errorMsg = escapeMarkdownV2(e.getMessage());
+            statusMsg.append(" └─ Error\\: ").append(errorMsg != null && errorMsg.length() > 80 ? errorMsg.substring(0, 80) + "\\.\\.\\." : errorMsg).append("\n");
+        }
         
-
         
         try {
             telegramClient.sendToChat(targetChatId, statusMsg.toString());
@@ -316,17 +338,17 @@ public class InteractiveCommandService {
         String pollingStatus = isPolling ? "🟢 Running" : "⏸️ Paused";
         
         String startMsg = 
-            "🤖 **Welcome to YouTrack Messenger Bot\\!**\n\n" +
+            "🤖 *Welcome to YouTrack Messenger Bot\\!*\n\n" +
             "I can help you manage YouTrack issues directly from Telegram\\.\n\n" +
-            "📋 **Available Commands\\:**\n\n" +
-            "**Issue Management\\:**\n" +
+            "📋 *Available Commands\\:*\n\n" +
+            "*Issue Management\\:*\n" +
             " `/create <summary> @PROJECT_ID` \\- Create a new issue\n" +
             " `/projects` \\- Show available projects\n\n" +
-            "**Notification Control\\:**\n" +
+            "*Notification Control\\:*\n" +
             " `/pull` \\- Start notification polling\n" +
             " `/stop` \\- Stop notification polling\n" +
             " `/status` \\- Show bot status\n\n" +
-            "📊 **Current Polling Status\\:** " + pollingStatus + "\n\n" +
+            "📊 *Current Polling Status\\:* " + pollingStatus + "\n\n" +
             "Let's get started\\! 🚀";
             
         telegramClient.sendToChat(targetChatId, startMsg);
@@ -341,15 +363,15 @@ public class InteractiveCommandService {
         String targetChatId = chatId;
         
         if (notificationScheduler.isRunning()) {
-            String msg = "⚠️ **Notification polling is already running\\!**\n\n" +
+            String msg = "⚠️ *Notification polling is already running\\!*\n\n" +
                 "The bot is actively pulling YouTrack notifications\\.\n" +
                 "Use `/stop` to pause polling\\.";
             telegramClient.sendToChat(targetChatId, msg);
         } else {
             notificationScheduler.start();
-            String msg = "✅ **Notification polling started\\!**\n\n" +
-                "The bot will now automatically pull YouTrack notifications\\.\n" +
-                "💡 **Tip\\:** Use `/status` to check polling status";
+            String msg = "✅ *Notification polling started\\!*\n\n" +
+                "The bot will now automatically pull YouTrack notifications\\." ;
+
             telegramClient.sendToChat(targetChatId, msg);
         }
     }
@@ -363,15 +385,15 @@ public class InteractiveCommandService {
         String targetChatId = chatId;
         
         if (!notificationScheduler.isRunning()) {
-            String msg = "⚠️ **Notification polling is not running\\!**\n\n" +
+            String msg = "⚠️ *Notification polling is not running\\!*\n\n" +
                 "The bot is currently paused\\.\n" +
                 "Use `/pull` to start polling\\.";
             telegramClient.sendToChat(targetChatId, msg);
         } else {
             notificationScheduler.stop();
-            String msg = "⏸️ **Notification polling stopped\\!**\n\n" +
+            String msg = "⏸️ *Notification polling stopped\\!*\n\n" +
                 "The bot has paused pulling YouTrack notifications\\.\n" +
-                "💡 **Tip\\:** Use `/pull` to resume polling";
+                "💡 *Tip\\:* Use `/pull` to resume polling";
             telegramClient.sendToChat(targetChatId, msg);
         }
     }
@@ -385,14 +407,14 @@ public class InteractiveCommandService {
     public void processUnknownCommand(String messageText, String chatId) throws IOException {
         String targetChatId = chatId; // Reply to the same chat where command was sent
         String unknownMsg = 
-            "❓ **Unknown command\\:** `" + messageText + "`\n\n" +
-            "📋 **Available commands\\:**\n" +
+            "❓ *Unknown command\\:* `" + messageText + "`\n\n" +
+            "📋 *Available commands\\:*\n" +
             " `/create <summary> @PROJECT_ID` \\- Create a new issue\n" +
             " `/projects` \\- Show available projects\n" +
             " `/status` \\- Show bot status\n" +
             " `/pull` \\- Start notification polling\n" +
             " `/stop` \\- Stop notification polling\n\n" +
-            "💡 **Tip\\:** Use `/projects` first to see available project IDs\\!";
+            "💡 *Tip\\:* Use `/projects` first to see available project IDs\\!";
             
         telegramClient.sendToChat(targetChatId, unknownMsg);
     }

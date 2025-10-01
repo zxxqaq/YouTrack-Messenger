@@ -47,9 +47,9 @@ public class TelegramWebhookHandler implements TelegramWebhookPort {
             }
         } catch (Exception e) {
             // Send error message to user
-            String errorMsg = "❌ **Error processing command\\:**\n\n" +
-                "**Command\\:** `" + messageText + "`\n" +
-                "**Error\\:** " + e.getMessage().replace("-", "\\-").replace(".", "\\.").replace("(", "\\(").replace(")", "\\)") + "\n\n" +
+            String errorMsg = "❌ *Error processing command\\:*\n\n" +
+                "*Command\\:* `" + messageText + "`\n" +
+                "*Error\\:* " + e.getMessage().replace("-", "\\-").replace(".", "\\.").replace("(", "\\(").replace(")", "\\)") + "\n\n" +
                 "Please try again or use `/help` for available commands\\.";
             
             try {

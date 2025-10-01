@@ -87,10 +87,10 @@ public class NotificationScheduler {
             String escapedErrorMessage = escapeMarkdownV2(errorMessage);
             
             String alertMsg = String.format(
-                "🚨 **Notification Scheduler Alert**\n\n" +
-                "❌ **Status\\:** Failed after %d consecutive attempts\n" +
-                "🔍 **Error Type\\:** %s\n" +
-                "📝 **Details\\:** %s\n\n" +
+                "🚨 *Notification Scheduler Alert*\n\n" +
+                "❌ *Status\\:* Failed after %d consecutive attempts\n" +
+                "🔍 *Error Type\\:* %s\n" +
+                "📝 *Details\\:* %s\n\n" +
                 "⚠️ The system will continue retrying automatically\\.\n" +
                 "💡 Use `/status` to check current system health\\.\n" +
                 "📋 Check the application logs for more details\\.",
@@ -107,7 +107,7 @@ public class NotificationScheduler {
     private void sendRecoveryNotification() {
         try {
             String recoveryMsg = 
-                "✅ **Notification Scheduler Recovered**\n\n" +
+                "✅ *Notification Scheduler Recovered*\n\n" +
                 "The notification scheduler has successfully recovered and is now operating normally\\.";
             
             messengerPort.sendToPm(recoveryMsg);
