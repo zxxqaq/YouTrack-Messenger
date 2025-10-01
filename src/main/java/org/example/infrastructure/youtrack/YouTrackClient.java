@@ -39,12 +39,12 @@ public class YouTrackClient implements IssueTrackerPort {
         String base = normalizeBase(properties.getBaseUrl());
         HttpUrl.Builder urlBuilder = HttpUrl.parse(base + "/api/users/notifications")
                 .newBuilder()
-                .addQueryParameter("fields", "id,content,metadata,read,updated")
-                .addQueryParameter("$top", String.valueOf(top));
+                .addQueryParameter("fields", "id,content,metadata")
+                .addQueryParameter("all", "true");  // Get notifications for all users (requires admin permissions)
         
-        // Add timestamp filter if provided
-        if (timestampCursor != null) {
-            urlBuilder.addQueryParameter("updated", ">" + timestampCursor);
+        // Add top limit if provided
+        if (top > 0) {
+            urlBuilder.addQueryParameter("$top", String.valueOf(top));
         }
         
         HttpUrl url = urlBuilder.build();
