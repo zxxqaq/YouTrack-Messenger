@@ -10,7 +10,7 @@ This Telegram bot integrates with YouTrack to provide:
 - Configurable polling interval (default: 30s in Docker, 10s locally)
 - Configurable notification count per fetch (default: 1000)
 - Sends them directly to your Telegram private messages
-- Prevents duplicate notifications with persistent storage
+- Filter already sent notifications to avoid duplicates
 
 *Configuration files: `src/main/resources/application.yml` (local) or `docker/app/application-docker.yml` (Docker)*
 
