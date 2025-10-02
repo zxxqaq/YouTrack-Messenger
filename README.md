@@ -66,7 +66,7 @@ For detailed troubleshooting and service management, you can check [docker.md](d
 
 ```bash
 # 1. Clone the repository
-git clone <your-repo-url>
+git clone <this-repo-url>
 cd youtrack_messenger
 
 # 2. Check docker has been installed
