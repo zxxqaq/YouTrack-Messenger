@@ -24,7 +24,24 @@
 2. **Use /newbot**: Follow the prompts to create your bot
 3. **Get Token**: Copy the token (format: `123456789:ABCdefGHIjklMNOpqrsTUVwxyz`)
 
-### 2.2 Your Chat ID
+### 2.2 Start your Bot
+
+**Step 1: Open the Bot You Created**
+- Method 1 (Recommended): Click the link directly (or copy and paste it into your browser)
+
+   `https://t.me/YourBotUsername`
+   
+   Then Telegram will open your bot’s chat window. Click “Start” to begin chatting.
+
+- Method 2: In Telegram’s search bar, enter the @BotUsername you set when creating the bot.
+For example, if you set it as @hello_bot, just search for that.
+
+**Step 2: Start the Bot (You MUST Click Start)**
+
+The first time you use it, you need to click the “Start” button (or send /start) to activate the bot chat.
+
+
+### 2.3 Your Chat ID
 
 1. Message [@userinfobot](https://t.me/userinfobot) on Telegram
 2. It will reply with your user ID

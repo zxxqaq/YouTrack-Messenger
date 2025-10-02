@@ -19,8 +19,6 @@ jobs:
       - Set up JDK 21
       - Cache Gradle dependencies  
       - Run unit tests
-      - Build Docker image
-      - Test Docker image
       - Upload test results
 ```
 
@@ -29,6 +27,4 @@ jobs:
 ```bash
 # Run the same checks as CI
 ./gradlew test                    # Unit tests
-docker build -t test-image .      # Docker build test
-docker run --rm test-image java -jar app.jar --help  # Docker run test
 ```

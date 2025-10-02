@@ -1,135 +1,51 @@
-# YouTrack Messenger Bot - Docker Edition
+# Docker Service Management & Troubleshooting
 
-This project implements a Telegram bot that integrates with YouTrack to provide notifications and interactive issue creation, now fully containerized with Docker for easy deployment.
+This document provides detailed instructions for managing Docker services and troubleshooting common issues with the YouTrack Messenger Bot.
 
-## 🚀 Quick Start
+## Service Management
 
-### Prerequisites
-- Docker
-- Docker Compose
-- YouTrack instance with API token
-- Telegram bot token
-- ngrok authtoken
-
-### One-Click Setup
-
+### Basic Operations
 ```bash
-# 1. Clone the repository
-git clone <your-repo>
-cd youtrack_messenger
-
-# 2. Run setup script
-./setup.sh
-
-# 3. Edit configuration
-# Edit .env file with your settings:
-# - YOUTRACK_BASE_URL
-# - YOUTRACK_TOKEN
-# - TELEGRAM_BOT_TOKEN
-# - TELEGRAM_PM_CHAT_ID
-# - NGROK_AUTHTOKEN
-
-# 4. Start services
-./setup.sh
-```
-
-## 📋 Configuration
-
-### Environment Variables (.env file)
-
-```bash
-# Port Configuration
-APP_PORT=8080
-NGROK_WEB_PORT=4040
-
-# YouTrack Configuration
-YOUTRACK_BASE_URL=https://your-instance.youtrack.cloud
-YOUTRACK_TOKEN=your-youtrack-token
-
-# Telegram Configuration  
-TELEGRAM_BOT_TOKEN=your-bot-token
-TELEGRAM_PM_CHAT_ID=your-chat-id
-
-# ngrok Configuration
-NGROK_AUTHTOKEN=your-ngrok-authtoken
-```
-
-## 🛠️ Management Commands
-
-### Service Management
-```bash
-# Start services
+# Start all services
 ./manage.sh start
 
-# Stop services
+# Stop all services  
 ./manage.sh stop
 
-# Restart services
+# Restart all services
 ./manage.sh restart
 
-# View logs
-./manage.sh logs
-
-# Check status
+# Check service status and URLs
 ./manage.sh status
+
+# View application logs
+./manage.sh logs
 ```
 
 ### Port Management
 ```bash
-# Check port status
+# Show port configuration and usage
 ./configure-ports.sh show
 
 # Change port configuration
 ./configure-ports.sh change
-```
 
-### Maintenance
-```bash
-# Update services
-./manage.sh update
-
-# Clean up Docker resources
-./manage.sh clean
-```
-
-## 🌐 Access URLs
-
-- **Bot Application**: http://localhost:8080
-- **ngrok Web Interface**: http://localhost:4040
-
-## 📊 Features
-
-- **YouTrack Notifications**: Fetches notifications and sends to Telegram PM
-- **Deduplication**: Prevents duplicate notifications using H2 database
-- **Interactive Commands**: Create issues, list projects, manage scheduler
-- **Automatic Webhook Setup**: ngrok integration with automatic Telegram webhook configuration
-- **Health Monitoring**: Built-in health checks and monitoring
-
-## 🔧 Architecture
-
-### Docker Services
-- **app**: Spring Boot application
-- **ngrok**: Tunnel service for webhook
-- **webhook-setup**: Automatic Telegram webhook configuration
-
-### Data Persistence
-- H2 database files stored in `./data/` directory
-- Logs stored in `./logs/` directory
-- Configuration via environment variables
-
-## 🚨 Troubleshooting
-
-### Port Conflicts
-```bash
 # Check for port conflicts
 ./port-check.sh
+```
 
+## Troubleshooting
+
+### Common Issues
+
+**Port Conflicts**
+```bash
 # Manually kill processes on ports
 lsof -ti:8080 | xargs kill -9
 lsof -ti:4040 | xargs kill -9
 ```
 
-### Service Issues
+**Service Health Check**
 ```bash
 # Check service status
 docker-compose ps
@@ -137,11 +53,11 @@ docker-compose ps
 # View detailed logs
 docker-compose logs -f app
 
-# Restart specific service
-docker-compose restart app
+# Check application health endpoint
+curl http://localhost:8080/actuator/health
 ```
 
-### Clean Restart
+**Clean Restart**
 ```bash
 # Stop all services
 docker-compose down
@@ -153,40 +69,121 @@ docker-compose down --rmi all
 ./setup.sh
 ```
 
-## 📝 Development
+### Advanced Troubleshooting
 
-### Local Development
+**Database Issues**
 ```bash
-# Run tests
-./gradlew test
+# Check database files
+ls -la data/
 
-# Build Docker image
-docker build -t youtrack-messenger:latest .
+# Reset database (WARNING: deletes all data)
+rm -rf data/ && mkdir -p data
 
-# Run with Docker Compose
-docker-compose up -d
+# Check database connections in logs
+docker-compose logs app | grep -i "hikari\|database\|h2"
 ```
 
-### CI/CD
-The project includes GitHub Actions CI that:
-- Runs unit tests with `./gradlew test`
-- Builds Docker image
-- Tests Docker image functionality
+**Network Issues**
+```bash
+# Check Docker networks
+docker network ls
 
-## 🔄 Migration from Local Setup
+# Inspect network configuration
+docker network inspect youtrack_messenger_default
 
-If migrating from the local setup:
+# Test internal connectivity
+docker-compose exec app ping ngrok
+```
 
-1. **Backup existing data** (optional, as Docker uses fresh database)
-2. **Stop local services**
-3. **Run Docker setup**: `./setup.sh`
-4. **Configure environment**: Edit `.env` file
-5. **Start services**: `./setup.sh`
+**Configuration Issues**
+```bash
+# Check environment variables
+docker-compose config
 
-## 📞 Support
+# Verify .env file loading
+docker-compose exec app env | grep -E "(YOUTRACK|TELEGRAM|NGROK)"
+
+# Test API connectivity
+docker-compose exec app curl -I $YOUTRACK_BASE_URL
+```
+
+## Local Development and Updating
+
+### Development Commands
+```bash
+# Run tests locally
+./gradlew test
+
+# Build application
+./gradlew build
+
+# Run application locally (without Docker)
+SPRING_PROFILES_ACTIVE=local ./gradlew bootRun
+```
+
+### Updating Services
+```bash
+# Update code and restart services
+./manage.sh update
+
+# Manual update process
+git pull
+docker-compose up -d --build
+```
+
+### Development with Docker
+```bash
+# Build Docker image locally
+docker build -t youtrack-messenger:dev .
+
+# Run with custom image
+docker-compose -f docker-compose.yml up -d
+```
+
+## Maintenance
+
+### Regular Maintenance
+```bash
+# Clean up Docker resources
+./manage.sh clean
+
+# Check resource usage
+docker stats
+docker system df
+
+# Prune unused resources
+docker system prune -f
+```
+
+### Data Management
+```bash
+# Backup database
+cp -r data/ backup/data-$(date +%Y%m%d)
+
+# View database size
+du -sh data/
+
+# Clean old logs
+docker-compose logs --tail=100 app > recent_logs.txt
+```
+
+### System Monitoring
+```bash
+# Monitor container resource usage
+docker-compose top
+
+# Check container health
+docker-compose ps
+
+# View system resource usage
+docker stats --no-stream
+```
+
+## Support
 
 For issues and questions:
-1. Check the logs: `./manage.sh logs`
-2. Verify configuration: `./manage.sh status`
-3. Check port conflicts: `./configure-ports.sh show`
+1. Check logs: `./manage.sh logs`
+2. Verify status: `./manage.sh status`
+3. Check ports: `./configure-ports.sh show`
 4. Clean restart: `./manage.sh clean && ./setup.sh`
+5. Check health: `curl http://localhost:8080/actuator/health`

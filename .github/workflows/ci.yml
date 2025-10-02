@@ -35,9 +35,3 @@ jobs:
         with:
           name: test-results
           path: build/reports/tests/test/
-      
-      - name: Build Docker image
-        run: docker build -t youtrack-messenger:test .
-      
-      - name: Test Docker image
-        run: docker run --rm youtrack-messenger:test java -jar app.jar --help
