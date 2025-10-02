@@ -4,7 +4,9 @@ A Spring Boot application that connects YouTrack and Telegram Bot API, enabling 
 
 ## 🤖 Bot Introduction
 
-This Telegram bot integrates with YouTrack to provide:
+For demo video, please go to [demo-videos](./demo-videos) folder and check `terminal.mp4` and `telegram.mp4`.
+
+The Telegram bot integrates with YouTrack to provide:
 
 **Automatic Notifications**
 - Configurable polling interval (default: 30s in Docker, 10s locally)
