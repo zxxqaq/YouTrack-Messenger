@@ -1,0 +1,57 @@
+services:
+  app:
+    build: .
+    ports:
+      - "${APP_PORT:-8080}:8080"  # Use environment variable, default 8080
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SERVER_PORT=8080  # Fixed port inside container
+      - SPRING_DATASOURCE_URL=jdbc:h2:file:/app/data/notificationdb
+      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.h2.Driver
+      - SPRING_DATASOURCE_USERNAME=sa
+      - SPRING_DATASOURCE_PASSWORD=
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    command: ["http", "app:8080"]
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    depends_on:
+      - app
+    restart: unless-stopped
+    ports:
+      - "${NGROK_WEB_PORT:-4040}:4040"  # Use environment variable, default 4040
+
+  webhook-setup:
+    image: curlimages/curl:latest
+    depends_on:
+      - app
+      - ngrok
+    environment:
+      - BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+    command: >
+      sh -c "
+        echo 'Waiting for services to start...' &&
+        sleep 30 &&
+        echo 'Getting ngrok URL...' &&
+        NGROK_URL=$$(curl -s http://ngrok:4040/api/tunnels | jq -r '.tunnels[0].public_url') &&
+        echo 'Setting webhook: '$$NGROK_URL/api/telegram/webhook &&
+        curl -X POST https://api.telegram.org/bot$$BOT_TOKEN/setWebhook \
+             -H 'Content-Type: application/json' \
+             -d '{\"url\": \"'$$NGROK_URL'/api/telegram/webhook\"}' &&
+        echo 'Webhook setup complete!'
+      "
+    restart: "no"

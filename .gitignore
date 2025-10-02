@@ -6,6 +6,13 @@ data/
 *.db
 *.trace.db
 
+# Docker environment files
+.env
+docker-compose.override.yml
+
+# Logs
+logs/
+
 # Gradle
 .gradle/
 build/
