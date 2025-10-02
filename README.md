@@ -1,16 +1,28 @@
 # YouTrack Messenger Bot
 
-A Telegram bot that can pull notifications from YouTrack and allows users to create issues interactively.
+A Spring Boot application that connects YouTrack and Telegram Bot API, enabling automatic notification pulling and interactive issue creation.
 
 ## 🤖 Bot Introduction
 
-This Telegram bot integrates with YouTrack to provide:
+For demo video, please go to [demo-videos](./demo-videos) folder and check `terminal.mp4` and `telegram.mp4`.
+
+<p align="center">
+  <img src="demo-videos/screen1.png" width="20%" />
+  <img src="demo-videos/screen2.png" width="20%" />
+</p>
+
+
+<p align="center">
+  <img src="demo-videos/screen3.png" width="40%" />
+</p>
+
+The Telegram bot integrates with YouTrack to provide:
 
 **Automatic Notifications**
 - Configurable polling interval (default: 30s in Docker, 10s locally)
 - Configurable notification count per fetch (default: 1000)
 - Sends them directly to your Telegram private messages
-- Prevents duplicate notifications with persistent storage
+- Filter already sent notifications to avoid duplicates
 
 *Configuration files: `src/main/resources/application.yml` (local) or `docker/app/application-docker.yml` (Docker)*
 
