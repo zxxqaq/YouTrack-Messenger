@@ -6,11 +6,11 @@ A Telegram bot that can pull notifications from YouTrack and allows users to cre
 
 ## 🤌 Prerequisites
 
-You need to preprare your tokens and ids before start running this application. Please refer to the instructions in [README-Prerequisites.md](README-Prerequisites.md)
+You need to preprare your tokens and ids before start running this application. Please refer to the instructions in [prerequisites.md](docs/prerequisites.md)
 
 ## 🚀 Quick Start
 
-For detailed troubleshooting and service management, you can check [README-Docker.md](README-Docker.md)
+For detailed troubleshooting and service management, you can check [docker.md](docs/docker.md)
 
 ```bash
 # 1. Clone the repository
@@ -38,9 +38,9 @@ cp .env.example .env
 
 ## 📁 Other info
 
-- [project structure](project-structure.md)
-- [dependencies and services](dependencies-services.md)
-- [CI/CD pipeline](CI.md)
+- [project structure](docs/project-structure.md)
+- [dependencies and services](docs/dependencies-services.md)
+- [CI/CD pipeline](docs/CI.md)
 
 
 
