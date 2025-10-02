@@ -1,6 +1,6 @@
 # YouTrack Messenger Bot
 
-A Telegram bot that can pull notifications from YouTrack and allows users to create issues interactively.
+A Spring Boot application that connects YouTrack and Telegram Bot API, enabling automatic notification pulling and interactive issue creation.
 
 ## 🤖 Bot Introduction
 
