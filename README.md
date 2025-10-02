@@ -6,6 +6,16 @@ A Spring Boot application that connects YouTrack and Telegram Bot API, enabling 
 
 For demo video, please go to [demo-videos](./demo-videos) folder and check `terminal.mp4` and `telegram.mp4`.
 
+<p align="center">
+  <img src="demo-videos/screen1.png" width="20%" />
+  <img src="demo-videos/screen2.png" width="20%" />
+</p>
+
+
+<p align="center">
+  <img src="demo-videos/screen3.png" width="40%" />
+</p>
+
 The Telegram bot integrates with YouTrack to provide:
 
 **Automatic Notifications**
