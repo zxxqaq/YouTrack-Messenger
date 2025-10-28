@@ -1,12 +1,15 @@
 package org.example.application.service;
 
 import org.example.domain.port.MessengerPort;
+import org.example.infrastructure.scheduler.SchedulerProperties;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.Duration;
 
 @Component
 @ConditionalOnProperty(prefix = "scheduler", name = "enabled", havingValue = "true", matchIfMissing = true)
@@ -15,19 +18,24 @@ public class NotificationScheduler {
     private final NotifyIssueService notifyIssueService;
     private final MessengerPort messengerPort;
     private final SystemHealthService healthService;
-    private static final int MAX_FAILURES_BEFORE_ALERT = 3;
-
+    private final SchedulerProperties schedulerProperties;
+    
     private volatile boolean isRunning = false; // Control flag for scheduler
+    private volatile boolean isPaused = false; // Paused due to errors
+    private volatile LocalDateTime pausedUntil = null; // When to automatically resume
+    private volatile boolean hasSentPauseAlert = false; // Track if pause alert was sent
 
     @Value("${scheduler.top:1000}")
     private int top;
 
     public NotificationScheduler(NotifyIssueService notifyIssueService,
                                 MessengerPort messengerPort,
-                                SystemHealthService healthService) {
+                                SystemHealthService healthService,
+                                SchedulerProperties schedulerProperties) {
         this.notifyIssueService = notifyIssueService;
         this.messengerPort = messengerPort;
         this.healthService = healthService;
+        this.schedulerProperties = schedulerProperties;
     }
 
     // Configurable via application properties - no initial delay, starts only when user enables it
@@ -39,12 +47,39 @@ public class NotificationScheduler {
         if (!isRunning) {
             return; // Skip execution if not enabled
         }
+
+        // Check if auto-resume time has passed
+        if (isPaused && pausedUntil != null) {
+            if (LocalDateTime.now().isAfter(pausedUntil)) {
+                System.out.println("[Scheduler] Auto-resuming after pause period");
+                isPaused = false;
+                pausedUntil = null;
+                hasSentPauseAlert = false;
+            } else {
+                // Still in pause period, skip execution
+                return;
+            }
+        }
+
+        // If paused and no auto-resume time set, skip execution
+        if (isPaused) {
+            return;
+        }
+
         try {
             notifyIssueService.sendAllToPm(top);
 
             // Record success and send recovery notification if recovering from failures
             boolean wasFaili = healthService.hasRecentFailures();
             healthService.recordSuccess();
+
+            // Reset pause state on success
+            if (isPaused) {
+                System.out.println("[Scheduler] Recovery detected, resuming scheduler");
+                isPaused = false;
+                pausedUntil = null;
+                hasSentPauseAlert = false;
+            }
 
             if (wasFaili) {
                 sendRecoveryNotification();
@@ -57,9 +92,21 @@ public class NotificationScheduler {
             System.err.println("[Scheduler] Broadcast failed (attempt " + failures + "): " + e.getMessage());
             e.printStackTrace();
 
-            // Send alert to PM after multiple consecutive failures
-            if (failures >= MAX_FAILURES_BEFORE_ALERT) {
-                sendFailureAlert(errorType, e.getMessage(), failures);
+            SchedulerProperties.CircuitBreaker circuitBreaker = schedulerProperties.getCircuitBreaker();
+            int maxFailures = circuitBreaker.getMaxConsecutiveFailures();
+            boolean autoPause = circuitBreaker.isAutoPause();
+
+            // Send alert and pause if exceeds threshold
+            if (failures >= maxFailures) {
+                if (!hasSentPauseAlert && circuitBreaker.isSendSingleAlert()) {
+                    sendFailureAlertWithPause(errorType, e.getMessage(), failures);
+                    hasSentPauseAlert = true;
+                }
+
+                // Auto-pause if enabled
+                if (autoPause && !isPaused) {
+                    pauseScheduler(circuitBreaker.getPauseDuration());
+                }
             }
         }
     }
@@ -81,7 +128,36 @@ public class NotificationScheduler {
         }
     }
 
-    private void sendFailureAlert(String errorType, String errorMessage, int failures) {
+    private void pauseScheduler(String pauseDuration) {
+        isPaused = true;
+        hasSentPauseAlert = true; // Mark as sent to prevent duplicates
+        
+        // Parse duration and set pause end time
+        Duration duration = parseDuration(pauseDuration);
+        pausedUntil = LocalDateTime.now().plus(duration);
+        
+        System.out.println("[Scheduler] Paused due to repeated failures. Will auto-resume at: " + pausedUntil);
+    }
+
+    private Duration parseDuration(String isoDuration) {
+        // Parse ISO 8601 duration (e.g., PT1H, PT30M, PT1S)
+        if (isoDuration.startsWith("PT")) {
+            String timeStr = isoDuration.substring(2);
+            if (timeStr.endsWith("H")) {
+                int hours = Integer.parseInt(timeStr.substring(0, timeStr.length() - 1));
+                return Duration.ofHours(hours);
+            } else if (timeStr.endsWith("M")) {
+                int minutes = Integer.parseInt(timeStr.substring(0, timeStr.length() - 1));
+                return Duration.ofMinutes(minutes);
+            } else if (timeStr.endsWith("S")) {
+                int seconds = Integer.parseInt(timeStr.substring(0, timeStr.length() - 1));
+                return Duration.ofSeconds(seconds);
+            }
+        }
+        return Duration.ofHours(1); // Default to 1 hour
+    }
+
+    private void sendFailureAlertWithPause(String errorType, String errorMessage, int failures) {
         try {
             String escapedErrorType = escapeMarkdownV2(errorType);
             String escapedErrorMessage = escapeMarkdownV2(errorMessage);
@@ -91,16 +167,17 @@ public class NotificationScheduler {
                 "❌ *Status\\:* Failed after %d consecutive attempts\n" +
                 "🔍 *Error Type\\:* %s\n" +
                 "📝 *Details\\:* %s\n\n" +
-                "⚠️ The system will continue retrying automatically\\.\n" +
-                "💡 Use `/status` to check current system health\\.\n" +
+                "⏸️ The scheduler has been paused to prevent further errors\\.\n" +
+                "🔄 It will auto\\-resume after the configured period\\.\n" +
+                "💡 Use `/start` to manually resume if needed\\.\n" +
                 "📋 Check the application logs for more details\\.",
                 failures, escapedErrorType, escapedErrorMessage
             );
 
             messengerPort.sendToPm(alertMsg);
-            System.out.println("[Scheduler] Failure alert sent to PM");
+            System.out.println("[Scheduler] Pause alert sent to PM");
         } catch (IOException telegramError) {
-            System.err.println("[Scheduler] Failed to send failure alert to Telegram: " + telegramError.getMessage());
+            System.err.println("[Scheduler] Failed to send pause alert to Telegram: " + telegramError.getMessage());
         }
     }
 
@@ -148,6 +225,9 @@ public class NotificationScheduler {
     public void start() {
         if (!isRunning) {
             isRunning = true;
+            isPaused = false;
+            pausedUntil = null;
+            hasSentPauseAlert = false;
             System.out.println("[Scheduler] Started by user command");
         }
     }
@@ -163,10 +243,29 @@ public class NotificationScheduler {
     }
 
     /**
+     * Manually resume scheduler from paused state
+     */
+    public void resume() {
+        if (isPaused) {
+            isPaused = false;
+            pausedUntil = null;
+            hasSentPauseAlert = false;
+            System.out.println("[Scheduler] Resumed by user command");
+        }
+    }
+
+    /**
      * Check if scheduler is currently running
      */
     public boolean isRunning() {
         return isRunning;
+    }
+
+    /**
+     * Check if scheduler is paused due to errors
+     */
+    public boolean isPaused() {
+        return isPaused;
     }
 }
 
