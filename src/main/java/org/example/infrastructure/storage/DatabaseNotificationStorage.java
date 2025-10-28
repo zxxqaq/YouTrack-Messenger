@@ -31,7 +31,7 @@ public class DatabaseNotificationStorage implements NotificationStoragePort {
 
         if (!newIds.isEmpty()) {
             List<SentNotification> records = newIds.stream()
-                    .map(id -> new SentNotification(id, null, null, null))
+                    .map(id -> new SentNotification(id))
                     .collect(Collectors.toList());
 
             repository.saveAll(records);
