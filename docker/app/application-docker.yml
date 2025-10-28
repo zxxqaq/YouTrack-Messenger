@@ -17,7 +17,7 @@ logging:
 
 scheduler:
   enabled: true
-  fixed-delay: PT30S  # Production environment 30 seconds
+  fixed-delay: PT5S  # Production environment 30 seconds
   top: 1000
   pagination:
     enabled: true
@@ -34,7 +34,7 @@ spring:
     url: jdbc:h2:file:/app/data/notificationdb
     driver-class-name: org.h2.Driver
     username: sa
-    password: 
+    password:
   jpa:
     hibernate:
       ddl-auto: update

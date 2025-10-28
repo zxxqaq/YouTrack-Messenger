@@ -20,7 +20,7 @@ public class NotifyIssueService {
     private final NotificationStoragePort storagePort;
     private final SchedulerProperties schedulerProperties;
 
-    public NotifyIssueService(IssueTrackerPort issueTrackerPort, MessengerPort messengerPort, 
+    public NotifyIssueService(IssueTrackerPort issueTrackerPort, MessengerPort messengerPort,
                              NotificationStoragePort storagePort, SchedulerProperties schedulerProperties) {
         this.issueTrackerPort = issueTrackerPort;
         this.messengerPort = messengerPort;
@@ -71,30 +71,30 @@ public class NotifyIssueService {
         storagePort.markAsSent(newSentIds);
         System.out.println("All new notifications sent to PM successfully and marked as sent");
     }
-    
+
 
 
     private void sendNotificationsWithPaginationToPm(List<NotificationView> notifications) throws IOException {
         SchedulerProperties.Pagination pagination = schedulerProperties.getPagination();
-        
+
         if (pagination.isEnabled()) {
             // Send with pagination
             int pageSize = pagination.getPageSize();
             int delayMs = parseDurationToMs(pagination.getDelayBetweenMessages());
-            
+
             System.out.println("Sending to PM with pagination: pageSize=" + pageSize + ", delay=" + delayMs + "ms");
-            
+
             for (int i = 0; i < notifications.size(); i += pageSize) {
                 int endIndex = Math.min(i + pageSize, notifications.size());
                 List<NotificationView> page = notifications.subList(i, endIndex);
-                
+
                 System.out.println("Sending page " + (i/pageSize + 1) + " (" + page.size() + " notifications) to PM");
-                
+
                 for (NotificationView n : page) {
                     String msg = formatForTelegram(n);
                     System.out.println("Sending message: " + msg);
                     messengerPort.sendToPm(msg);
-                    
+
                     if (delayMs > 0) {
                         try {
                             Thread.sleep(delayMs);
@@ -114,9 +114,8 @@ public class NotifyIssueService {
             }
         }
     }
-    
+
     private int parseDurationToMs(String duration) {
-        // Simple parser for PT1S, PT2S, etc.
         if (duration.startsWith("PT") && duration.endsWith("S")) {
             try {
                 String seconds = duration.substring(2, duration.length() - 1);
@@ -127,7 +126,7 @@ public class NotifyIssueService {
         }
         return 1000; // Default 1 second
     }
-    
+
 
     private String formatForTelegram(NotificationView n) {
         return Formatter.toTelegramMarkdown(n);

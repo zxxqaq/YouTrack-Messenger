@@ -18,7 +18,6 @@ public class SystemHealthService {
     private final AtomicReference<LocalDateTime> lastFailureTime = new AtomicReference<>(null);
     private final AtomicReference<String> lastErrorMessage = new AtomicReference<>(null);
     private final AtomicReference<String> lastErrorType = new AtomicReference<>(null);
-    private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     public void recordSuccess() {
         consecutiveFailures.set(0);
