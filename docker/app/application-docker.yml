@@ -23,6 +23,11 @@ scheduler:
     enabled: true
     page-size: 1
     delay-between-messages: PT1S
+  circuit-breaker:
+    max-consecutive-failures: 3  # Pause after 3 consecutive failures
+    auto-pause: true  # Automatically pause on errors
+    pause-duration: PT1H  # Pause for 1 hour
+    send-single-alert: true  # Only send one pause alert
 
 storage:
   cleanup:
