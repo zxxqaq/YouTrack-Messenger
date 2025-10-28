@@ -74,7 +74,9 @@ class CoreBusinessLogicTest {
         notifyIssueService.sendAllToPm(10);
 
         ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
+        // only sent one notification, which means 516-1 has been filtered out successfully
         verify(messengerPort, times(1)).sendToPm(messageCaptor.capture());
+
 
         String sentMessage = messageCaptor.getValue();
         assertTrue(sentMessage.contains("BUG-2"), "Only unsent notification BUG-2 should be sent");
