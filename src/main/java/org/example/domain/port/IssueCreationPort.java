@@ -5,13 +5,6 @@ import java.io.IOException;
 import java.util.List;
 
 public interface IssueCreationPort {
-    /**
-     * Create a new issue in YouTrack
-     * @param summary The issue summary/title
-     * @return The created issue ID
-     * @throws IOException if creation fails
-     */
-    String createIssue(String summary) throws IOException;
 
     /**
      * Create a new issue in YouTrack with specified project

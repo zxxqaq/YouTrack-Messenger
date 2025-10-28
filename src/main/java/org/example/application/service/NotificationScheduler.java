@@ -19,7 +19,7 @@ public class NotificationScheduler {
     
     private volatile boolean isRunning = false; // Control flag for scheduler
 
-    @Value("${scheduler.top:1000S}")
+    @Value("${scheduler.top:1000}")
     private int top;
 
     public NotificationScheduler(NotifyIssueService notifyIssueService, 

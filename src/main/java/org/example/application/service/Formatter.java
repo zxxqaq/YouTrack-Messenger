@@ -7,7 +7,7 @@ import java.util.stream.Collectors;
 
 public final class Formatter {
     private Formatter() {}
-    
+
     /** Escapes triple backticks to avoid breaking code blocks */
     private static String sanitizeForTripleBacktick(String s) {
         if (s == null) return "";
@@ -61,14 +61,6 @@ public final class Formatter {
     }
 
     // --------- helpers ---------
-
-    private static boolean hasStar(org.example.domain.view.NotificationView n) {
-        if (n.tags == null) return false;
-        for (String t : n.tags) {
-            if ("Star".equalsIgnoreCase(t)) return true;
-        }
-        return false;
-    }
 
     private static boolean notBlank(String s) {
         return s != null && !s.isBlank();
