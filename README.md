@@ -1,3 +1,8 @@
+## Update - 2025.10.28
+Fix issues (see the `fix` branch) based on feedback and self-review, run tests, verify that the functionality on both ends (YouTrack and Telegram) works well, and merge into the `main` branch.
+
+---
+
 # YouTrack Messenger Bot
 
 A Spring Boot application that connects YouTrack and Telegram Bot API, enabling automatic notification pulling and interactive issue creation.

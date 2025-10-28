@@ -16,13 +16,13 @@ public class NotificationScheduler {
     private final MessengerPort messengerPort;
     private final SystemHealthService healthService;
     private static final int MAX_FAILURES_BEFORE_ALERT = 3;
-    
+
     private volatile boolean isRunning = false; // Control flag for scheduler
 
-    @Value("${scheduler.top:1000S}")
+    @Value("${scheduler.top:1000}")
     private int top;
 
-    public NotificationScheduler(NotifyIssueService notifyIssueService, 
+    public NotificationScheduler(NotifyIssueService notifyIssueService,
                                 MessengerPort messengerPort,
                                 SystemHealthService healthService) {
         this.notifyIssueService = notifyIssueService;
@@ -32,7 +32,7 @@ public class NotificationScheduler {
 
     // Configurable via application properties - no initial delay, starts only when user enables it
     @Scheduled(
-            fixedDelayString = "${scheduler.fixed-delay:PT10M}"
+            fixedDelayString = "${scheduler.fixed-delay:PT5S}"
     )
     public void pullAndBroadcast() {
         // Check if scheduler is enabled by user
@@ -41,22 +41,22 @@ public class NotificationScheduler {
         }
         try {
             notifyIssueService.sendAllToPm(top);
-            
+
             // Record success and send recovery notification if recovering from failures
             boolean wasFaili = healthService.hasRecentFailures();
             healthService.recordSuccess();
-            
+
             if (wasFaili) {
                 sendRecoveryNotification();
             }
         } catch (Exception e) {
             String errorType = determineErrorType(e);
             healthService.recordFailure(errorType, e.getMessage());
-            
+
             int failures = healthService.getConsecutiveFailures();
             System.err.println("[Scheduler] Broadcast failed (attempt " + failures + "): " + e.getMessage());
             e.printStackTrace();
-            
+
             // Send alert to PM after multiple consecutive failures
             if (failures >= MAX_FAILURES_BEFORE_ALERT) {
                 sendFailureAlert(errorType, e.getMessage(), failures);
@@ -69,7 +69,7 @@ public class NotificationScheduler {
         if (message == null) {
             return "Unknown Error";
         }
-        
+
         if (message.contains("YouTrack") || message.contains("HTTP")) {
             return "YouTrack Connection Error";
         } else if (message.contains("database") || message.contains("SQL") || message.contains("H2")) {
@@ -85,7 +85,7 @@ public class NotificationScheduler {
         try {
             String escapedErrorType = escapeMarkdownV2(errorType);
             String escapedErrorMessage = escapeMarkdownV2(errorMessage);
-            
+
             String alertMsg = String.format(
                 "🚨 *Notification Scheduler Alert*\n\n" +
                 "❌ *Status\\:* Failed after %d consecutive attempts\n" +
@@ -96,7 +96,7 @@ public class NotificationScheduler {
                 "📋 Check the application logs for more details\\.",
                 failures, escapedErrorType, escapedErrorMessage
             );
-            
+
             messengerPort.sendToPm(alertMsg);
             System.out.println("[Scheduler] Failure alert sent to PM");
         } catch (IOException telegramError) {
@@ -106,10 +106,10 @@ public class NotificationScheduler {
 
     private void sendRecoveryNotification() {
         try {
-            String recoveryMsg = 
+            String recoveryMsg =
                 "✅ *Notification Scheduler Recovered*\n\n" +
                 "The notification scheduler has successfully recovered and is now operating normally\\.";
-            
+
             messengerPort.sendToPm(recoveryMsg);
             System.out.println("[Scheduler] Recovery notification sent to PM");
         } catch (IOException telegramError) {
@@ -141,7 +141,7 @@ public class NotificationScheduler {
             .replace("!", "\\!")
             .replace(":", "\\:");
     }
-    
+
     /**
      * Start the scheduler - enables notification pulling
      */
@@ -151,7 +151,7 @@ public class NotificationScheduler {
             System.out.println("[Scheduler] Started by user command");
         }
     }
-    
+
     /**
      * Stop the scheduler - disables notification pulling
      */
@@ -161,7 +161,7 @@ public class NotificationScheduler {
             System.out.println("[Scheduler] Stopped by user command");
         }
     }
-    
+
     /**
      * Check if scheduler is currently running
      */

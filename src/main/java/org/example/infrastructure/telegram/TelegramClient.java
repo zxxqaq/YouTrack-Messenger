@@ -22,12 +22,6 @@ public class TelegramClient implements MessengerPort {
     }
 
     @Override
-    public void sendToGroup(String text) throws IOException {
-        if (properties.getGroupChatId() == null) throw new IllegalStateException("telegram.group-chat-id is null");
-        sendMarkdownV2(properties.getGroupChatId(), text);
-    }
-
-    @Override
     public void sendToPm(String text) throws IOException {
         if (properties.getPmChatId() == null) throw new IllegalStateException("telegram.pm-chat-id is null");
         sendMarkdownV2(properties.getPmChatId(), text);

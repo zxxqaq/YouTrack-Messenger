@@ -1,38 +1,91 @@
 package org.example;
 
 import org.example.application.service.Formatter;
+import org.example.application.service.NotifyIssueService;
+import org.example.domain.port.IssueTrackerPort;
+import org.example.domain.port.MessengerPort;
+import org.example.domain.port.NotificationStoragePort;
 import org.example.domain.view.NotificationView;
+import org.example.infrastructure.scheduler.SchedulerProperties;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
-import java.util.Arrays;
+import java.io.IOException;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
 
 /**
- * 5 Core Business Logic Tests - Quick CI/CD Demo
+ * Real core business logic tests
+ * Tests actual service classes using Mockito
  */
 class CoreBusinessLogicTest {
 
+    @Mock
+    private IssueTrackerPort issueTrackerPort;
+
+    @Mock
+    private MessengerPort messengerPort;
+
+    @Mock
+    private NotificationStoragePort storagePort;
+
+    @Mock
+    private SchedulerProperties schedulerProperties;
+
+    private NotifyIssueService notifyIssueService;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+
+        SchedulerProperties.Pagination pagination = new SchedulerProperties.Pagination();
+        pagination.setEnabled(false);
+        pagination.setPageSize(1);
+        pagination.setDelayBetweenMessages("PT1S");
+
+        when(schedulerProperties.getPagination()).thenReturn(pagination);
+
+        notifyIssueService = new NotifyIssueService(
+            issueTrackerPort,
+            messengerPort,
+            storagePort,
+            schedulerProperties
+        );
+    }
+
     @Test
-    void test1_shouldDeduplicateNotifications() {
-        // Test notification deduplication logic
-        String notificationId1 = "516-1";
-        String notificationId2 = "516-2";
-        
-        // Mock sent notification ID set
-        java.util.Set<String> sentIds = java.util.Set.of(notificationId1);
-        
-        // Test deduplication logic
-        boolean isSent1 = sentIds.contains(notificationId1);
-        boolean isSent2 = sentIds.contains(notificationId2);
-        
-        assertTrue(isSent1, "Notification 516-1 should be marked as sent");
-        assertFalse(isSent2, "Notification 516-2 should be marked as unsent");
+    void test1_shouldDeduplicateNotifications() throws IOException {
+        List<NotificationView> allNotifications = Arrays.asList(
+            createNotification("516-1", "BUG-1", "Test issue 1"),
+            createNotification("516-2", "BUG-2", "Test issue 2")
+        );
+
+        when(storagePort.getAllSentIds()).thenReturn(Set.of("516-1"));
+        when(issueTrackerPort.fetchNotifications(anyInt())).thenReturn(allNotifications);
+
+        notifyIssueService.sendAllToPm(10);
+
+        ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
+        // only sent one notification, which means 516-1 has been filtered out successfully
+        verify(messengerPort, times(1)).sendToPm(messageCaptor.capture());
+
+
+        String sentMessage = messageCaptor.getValue();
+        assertTrue(sentMessage.contains("BUG-2"), "Only unsent notification BUG-2 should be sent");
+
+        verify(storagePort, times(1)).markAsSent(anySet());
     }
 
     @Test
     void test2_shouldFormatTelegramMessage() {
-        // Test MarkdownV2 formatting
         NotificationView notification = new NotificationView();
         notification.issueId = "DEMO-123";
         notification.title = "Fix login bug";
@@ -40,7 +93,7 @@ class CoreBusinessLogicTest {
         notification.priority = "Normal";
         notification.assignee = "Unassigned";
         notification.tags = Arrays.asList("Star");
-        notification.link = "https://xianzhang.youtrack.cloud/issue/DEMO-123";
+        notification.link = "https://example.com/issue/DEMO-123";
 
         String formattedMessage = Formatter.toTelegramMarkdown(notification);
 
@@ -48,69 +101,113 @@ class CoreBusinessLogicTest {
         assertTrue(formattedMessage.contains("*DEMO\\-123*"), "Should contain escaped issue ID");
         assertTrue(formattedMessage.contains("_Fix login bug_"), "Should contain italic title");
         assertTrue(formattedMessage.contains("Status: `Submitted`"), "Should contain status");
+        assertTrue(formattedMessage.contains("Priority: `Normal`"), "Should contain priority");
+        assertTrue(formattedMessage.contains("Assignee: `Unassigned`"), "Should contain assignee");
+        assertTrue(formattedMessage.contains("Tags: `Star`"), "Should contain tags");
     }
 
     @Test
-    void test3_shouldValidateProjectId() {
-        // Test project validation logic
-        String validProjectId = "0-0";
-        String invalidProjectId = "999-999";
-        
-        // Mock available projects list
-        java.util.List<String> availableProjects = Arrays.asList("0-0", "1-0", "2-0");
-        
-        boolean isValid1 = availableProjects.contains(validProjectId);
-        boolean isValid2 = availableProjects.contains(invalidProjectId);
-        
-        assertTrue(isValid1, "Project ID 0-0 should be valid");
-        assertFalse(isValid2, "Project ID 999-999 should be invalid");
-    }
-
-    @Test
-    void test4_shouldHandleApiErrors() {
-        // Test error handling logic
-        String invalidUrl = "https://invalid-url.com";
-        String validUrl = "https://xianzhang.youtrack.cloud";
-        
-        // Simple URL validation logic
-        boolean isValidUrl1 = invalidUrl.startsWith("https://") && invalidUrl.contains(".");
-        boolean isValidUrl2 = validUrl.startsWith("https://") && validUrl.contains(".");
-        
-        assertTrue(isValidUrl1, "Invalid URL should pass basic format check");
-        assertTrue(isValidUrl2, "Valid URL should pass basic format check");
-        
-        // Test null value handling
-        String nullSummary = null;
-        String emptySummary = "";
-        
-        boolean isNull = nullSummary == null;
-        boolean isEmpty = emptySummary != null && emptySummary.isEmpty();
-        
-        assertTrue(isNull, "Null value should be correctly identified");
-        assertTrue(isEmpty, "Empty string should be correctly identified");
-    }
-
-    @Test
-    void test5_shouldCreateIssueWithValidData() {
-        // Test core logic for creating issues
-        String summary = "Test issue";
-        String projectId = "0-0";
-        
-        // Validate input data
-        boolean hasValidSummary = summary != null && !summary.trim().isEmpty();
-        boolean hasValidProjectId = projectId != null && !projectId.trim().isEmpty();
-        
-        assertTrue(hasValidSummary, "Summary should be valid");
-        assertTrue(hasValidProjectId, "Project ID should be valid");
-        
-        // Mock JSON payload for creating issue
-        String jsonPayload = String.format(
-            "{\"summary\": \"%s\", \"project\": {\"id\": \"%s\"}}", 
-            summary, projectId
+    void test3_shouldSendAllNotificationsWhenNoneAreSent() throws IOException {
+        List<NotificationView> allNotifications = Arrays.asList(
+            createNotification("516-1", "BUG-1", "Issue 1"),
+            createNotification("516-2", "BUG-2", "Issue 2")
         );
-        
-        assertNotNull(jsonPayload, "JSON payload should not be null");
-        assertTrue(jsonPayload.contains(summary), "JSON should contain summary");
-        assertTrue(jsonPayload.contains(projectId), "JSON should contain project ID");
+
+        when(storagePort.getAllSentIds()).thenReturn(Collections.emptySet());
+        when(issueTrackerPort.fetchNotifications(anyInt())).thenReturn(allNotifications);
+
+        notifyIssueService.sendAllToPm(10);
+
+        verify(messengerPort, times(2)).sendToPm(anyString());
+
+        verify(storagePort, times(1)).markAsSent(anySet());
+    }
+
+    @Test
+    void test4_shouldSkipAlreadySentNotifications() throws IOException {
+        List<NotificationView> allNotifications = Arrays.asList(
+            createNotification("516-1", "BUG-1", "Issue 1"),
+            createNotification("516-2", "BUG-2", "Issue 2")
+        );
+
+        when(storagePort.getAllSentIds()).thenReturn(Set.of("516-1", "516-2"));
+        when(issueTrackerPort.fetchNotifications(anyInt())).thenReturn(allNotifications);
+
+        notifyIssueService.sendAllToPm(10);
+
+        verify(messengerPort, never()).sendToPm(anyString());
+
+        verify(storagePort, never()).markAsSent(anySet());
+    }
+
+    @Test
+    void test5_shouldHandleEmptyNotificationsList() throws IOException {
+        when(storagePort.getAllSentIds()).thenReturn(Collections.emptySet());
+        when(issueTrackerPort.fetchNotifications(anyInt())).thenReturn(Collections.emptyList());
+
+        notifyIssueService.sendAllToPm(10);
+
+        verify(messengerPort, never()).sendToPm(anyString());
+        verify(storagePort, never()).markAsSent(anySet());
+    }
+
+    @Test
+    void test6_shouldFormatNotificationWithSpecialCharacters() {
+        NotificationView notification = new NotificationView();
+        notification.issueId = "TEST-123";
+        notification.title = "Fix [urgent] bug (critical)";
+        notification.status = "In Progress";
+        notification.priority = "High";
+        notification.comment = "```code block```";
+        notification.link = "https://example.com/test(123)";
+
+        String formattedMessage = Formatter.toTelegramMarkdown(notification);
+
+        assertTrue(formattedMessage.contains("Fix \\[urgent\\] bug \\(critical\\)"));
+        assertTrue(formattedMessage.contains("```"));
+        assertTrue(formattedMessage.contains("``\\`"));
+    }
+
+    @Test
+    void test7_shouldHandlePaginationWhenEnabled() throws IOException {
+        SchedulerProperties.Pagination pagination = new SchedulerProperties.Pagination();
+        pagination.setEnabled(true);
+        pagination.setPageSize(2);
+        pagination.setDelayBetweenMessages("PT1S");
+
+        when(schedulerProperties.getPagination()).thenReturn(pagination);
+
+        notifyIssueService = new NotifyIssueService(
+            issueTrackerPort,
+            messengerPort,
+            storagePort,
+            schedulerProperties
+        );
+
+        List<NotificationView> allNotifications = Arrays.asList(
+            createNotification("516-1", "BUG-1", "Issue 1"),
+            createNotification("516-2", "BUG-2", "Issue 2"),
+            createNotification("516-3", "BUG-3", "Issue 3")
+        );
+
+        when(storagePort.getAllSentIds()).thenReturn(Collections.emptySet());
+        when(issueTrackerPort.fetchNotifications(anyInt())).thenReturn(allNotifications);
+
+        notifyIssueService.sendAllToPm(10);
+
+        verify(messengerPort, times(3)).sendToPm(anyString());
+    }
+
+
+    private NotificationView createNotification(String id, String issueId, String title) {
+        NotificationView notification = new NotificationView();
+        notification.id = id;
+        notification.issueId = issueId;
+        notification.title = title;
+        notification.status = "Submitted";
+        notification.priority = "Normal";
+        notification.assignee = "Unassigned";
+        notification.link = "https://example.com/" + issueId;
+        return notification;
     }
 }

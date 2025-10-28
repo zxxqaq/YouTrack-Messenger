@@ -5,9 +5,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "scheduler")
 public class SchedulerProperties {
     private boolean enabled = true;
-    private String fixedDelay = "PT10M";     // ISO-8601 duration
-    private String initialDelay = "PT10M";   // ISO-8601 duration
-    private int top = 20;
+    private String fixedDelay = "PT5S";
+    private String initialDelay = "PT0S";
+    private int top = 1000;
     private Pagination pagination = new Pagination();
 
     public boolean isEnabled() { return enabled; }
@@ -24,7 +24,7 @@ public class SchedulerProperties {
     public static class Pagination {
         private boolean enabled = false;
         private int pageSize = 1;
-        private String delayBetweenMessages = "PT1S"; // ISO-8601 duration
+        private String delayBetweenMessages = "PT1S";
 
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }

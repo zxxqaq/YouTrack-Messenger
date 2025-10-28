@@ -22,11 +22,6 @@ public class YouTrackIssueCreator implements IssueCreationPort {
         this.properties = properties;
     }
 
-    @Override
-    public String createIssue(String summary) throws IOException {
-        return createIssue(summary, "0-0"); // Default to Demo project
-    }
-
     /**
      * Create a new issue in YouTrack with specified project
      * @param summary The issue summary/title
@@ -44,7 +39,7 @@ public class YouTrackIssueCreator implements IssueCreationPort {
             summary.replace("\"", "\\\""), // Escape quotes
             projectId.replace("\"", "\\\"") // Escape quotes
         );
-        
+
         System.out.println("DEBUG: Creating YouTrack issue with payload: " + jsonPayload);
         System.out.println("DEBUG: YouTrack URL: " + url);
         System.out.println("DEBUG: YouTrack Token: " + properties.getToken().substring(0, 10) + "...");
@@ -66,14 +61,14 @@ public class YouTrackIssueCreator implements IssueCreationPort {
                 String errorBody = resp.body() != null ? resp.body().string() : "No error body";
                 throw new IOException("YouTrack " + resp.code() + ": " + resp.message() + " - " + errorBody);
             }
-            
+
             JsonNode response = om.readTree(resp.body().byteStream());
             String issueId = response.path("id").asText();
-            
+
             if (issueId.isEmpty()) {
                 throw new IOException("Failed to get issue ID from response");
             }
-            
+
             return issueId;
         }
     }
@@ -95,10 +90,10 @@ public class YouTrackIssueCreator implements IssueCreationPort {
             if (!resp.isSuccessful()) {
                 throw new IOException("YouTrack " + resp.code() + ": " + resp.message());
             }
-            
+
             JsonNode response = om.readTree(resp.body().byteStream());
             List<ProjectInfo> projects = new ArrayList<>();
-            
+
             if (response.isArray()) {
                 for (JsonNode project : response) {
                     String projectId = project.path("id").asText();
@@ -108,7 +103,7 @@ public class YouTrackIssueCreator implements IssueCreationPort {
                     }
                 }
             }
-            
+
             return projects;
         }
     }

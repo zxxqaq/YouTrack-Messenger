@@ -11,37 +11,15 @@ import java.util.Set;
 
 @Repository
 public interface SentNotificationRepository extends JpaRepository<SentNotification, String> {
-    
-    /**
-     * Check if notification ID exists
-     */
-    boolean existsByNotificationId(String notificationId);
-    
-    /**
-     * Find notifications by issue ID
-     */
-    List<SentNotification> findByIssueId(String issueId);
-    
-    /**
-     * Delete old records (for maintenance)
-     */
-    @Modifying
-    @Query("DELETE FROM SentNotification s WHERE s.sentAt < :cutoffDate")
-    int deleteBySentAtBefore(LocalDateTime cutoffDate);
-    
+
     /**
      * Count total records
      */
     long count();
-    
+
     /**
      * Find notifications by IDs
      */
     List<SentNotification> findByNotificationIdIn(Set<String> notificationIds);
-    
-    /**
-     * Get the latest notification timestamp (for cursor-based fetching)
-     */
-    @Query("SELECT s.updatedTimestamp FROM SentNotification s WHERE s.updatedTimestamp IS NOT NULL ORDER BY s.updatedTimestamp DESC LIMIT 1")
-    String findLatestNotificationTimestamp();
+
 }
