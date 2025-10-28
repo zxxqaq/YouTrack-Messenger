@@ -1,9 +1,9 @@
-package org.example.infrastructure.telegram;
+package org.example.application.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.example.application.service.InteractiveCommandService;
 import org.example.domain.port.TelegramWebhookPort;
+import org.example.domain.port.MessengerPort;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -12,12 +12,12 @@ import java.io.IOException;
 public class TelegramWebhookHandler implements TelegramWebhookPort {
 
     private final InteractiveCommandService commandService;
-    private final TelegramClient telegramClient;
+    private final MessengerPort telegramPort;
     private final ObjectMapper om = new ObjectMapper();
 
-    public TelegramWebhookHandler(InteractiveCommandService commandService, TelegramClient telegramClient) {
+    public TelegramWebhookHandler(InteractiveCommandService commandService, MessengerPort telegramClient) {
         this.commandService = commandService;
-        this.telegramClient = telegramClient;
+        this.telegramPort = telegramClient;
     }
 
     @Override
@@ -51,14 +51,14 @@ public class TelegramWebhookHandler implements TelegramWebhookPort {
                 "*Command\\:* `" + messageText + "`\n" +
                 "*Error\\:* " + e.getMessage().replace("-", "\\-").replace(".", "\\.").replace("(", "\\(").replace(")", "\\)") + "\n\n" +
                 "Please try again or use `/help` for available commands\\.";
-            
+
             try {
-                telegramClient.sendToChat(chatId, errorMsg);
+                telegramPort.sendToPm(errorMsg);
             } catch (IOException sendError) {
                 System.err.println("Failed to send error message to Telegram: " + sendError.getMessage());
                 sendError.printStackTrace();
             }
-            
+
             // Log the original error
             System.err.println("Error processing Telegram command: " + e.getMessage());
             e.printStackTrace();
@@ -73,7 +73,7 @@ public class TelegramWebhookHandler implements TelegramWebhookPort {
     public void processWebhook(String payload) throws IOException {
         try {
             JsonNode root = om.readTree(payload);
-            
+
             // Check if it's a message
             JsonNode message = root.path("message");
             if (message.isMissingNode()) {

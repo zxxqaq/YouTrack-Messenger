@@ -1,6 +1,6 @@
 package org.example.interfaces.rest;
 
-import org.example.infrastructure.telegram.TelegramWebhookHandler;
+import org.example.application.service.TelegramWebhookHandler;
 import org.springframework.web.bind.annotation.*;
 
 @RestController

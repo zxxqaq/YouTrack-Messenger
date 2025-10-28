@@ -33,6 +33,7 @@ public class TelegramClient implements MessengerPort {
      * @param text The message text
      * @throws IOException if sending fails
      */
+    @Override
     public void sendToChat(String chatId, String text) throws IOException {
         sendMarkdownV2(chatId, text);
     }
